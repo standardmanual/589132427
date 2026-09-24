@@ -105,12 +105,13 @@ jobs:
             "$MONKEYC" -f testfield/monkey.jungle -d "$d" -y "$RUNNER_TEMP/key.der" -o "out/JAMTEST-$d.prg" -w -l 1
           done
 
+      # 임시 키일 때도 패키지가 만들어지는지만 확인하고, 산출물로는 올리지 않습니다.
       - name: 스토어용 패키지 (.iq)
-        if: env.KEY_KIND == 'secret'
         run: |
           set -e
           "$MONKEYC" -e -r -f testfield/monkey.jungle -y "$RUNNER_TEMP/key.der" -o out/JAMTEST.iq -w -l 1
           ls -la out
+          if [ "$KEY_KIND" != "secret" ]; then rm -f out/JAMTEST.iq; echo "임시 키 패키지는 지웠습니다."; fi
 
       - name: 키 파일 지우기
         if: always()
