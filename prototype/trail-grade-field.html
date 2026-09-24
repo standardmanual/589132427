@@ -790,13 +790,17 @@ function drawWatch(){
   var box={x:0.07*S,y:0.34*S,w:0.86*S,h:0.33*S};
   var po={r0:vr.r0,r1:vr.r1,c0:vr.c0,c1:vr.c1,endD:vr.endD,endLabel:vr.endLabel,markerD:d,exag:settings.exag,
     fixed:settings.scaleMode==='fixed',colorOn:!!settings.colorOn,fan:seg.type==='DOWN'?'right':'left',u:u*1.3,
-    fs:{label:0.036*S,fan:0.03*S,scale:0.03*S},scaleBar:{y:0.697*S,align:'center',cx:S/2},off:M.off};
+    fs:{label:0.036*S,fan:0.03*S,scale:0.03*S},scaleBar:null,off:M.off};
   if(settings.width!=='seg'){ // 가로 범위 고정: 현재 위치를 왼쪽 25%에 두고 앞쪽 75%를 보여 줌
     var Dw=settings.width;
     po.win=true;po.w0=d-0.25*Dw;po.w1=d+0.75*Dw;po.c0=Math.max(0,po.w0);po.c1=Math.min(C.total,po.w1);
     if(po.fixed)po.vBase=windowBase(d,po.w0,po.w1,box.h/((box.w/Dw)*settings.exag));
   }
   drawProfile(ctx,box,po);
+  // 그래프 아래에는 가로 범위만 표시
+  var spanM=settings.width!=='seg'?settings.width:Math.min(C.total,vr.r1)-Math.max(0,vr.r0);
+  var spanTxt=spanM>=1000?(settings.width!=='seg'?String(spanM/1000):(spanM/1000).toFixed(1))+' km':Math.round(spanM/10)*10+' m';
+  text(ctx,(settings.width==='seg'?'구간 ':'')+spanTxt,S/2,0.703*S,{size:0.034*S,color:'#8f8f8f'});
 
   // top: mode chip
   var chipY=0.128*S,chipFs=0.046*S,lbl,glyph;
