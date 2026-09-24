@@ -371,7 +371,7 @@ tbody tr.cur td:first-child::before{content:"";display:inline-block;width:6px;he
 /* ---------- constants (명세 3장: 상수로 분리) ---------- */
 var UP=['#00df3f','#fefc00','#ffb63f','#fe6a00','#e00041','#dd00de'];   // 형광 계열, 인접 색 구분 검증 통과
 var DN=['#00e074','#48fff8','#38c5ff','#1888ff','#8600ee','#ea41ff'];
-var UP_ID=UP[3], DN_ID=DN[3];   // 오르막·내리막 대표색 (모드 아이콘, 구간 시작·끝 점, 구간 띠)
+var UP_ID=UP[3], DN_ID=DN[3];   // 오르막·내리막 대표색 (구간 시작·끝 점, 구간 띠)
 var MARKER='#ff1f1f';           // 현재 위치 삼각형
 var EDGES=[5,10,15,20,30];
 var BIN_LABELS=['0–5','5–10','10–15','15–20','20–30','30+'];
@@ -729,9 +729,9 @@ function drawProfile(ctx,box,o){
     var lx,ly0=ey2-10*u-lh*(lines.length-1),al='center';
     if(ly0-fs.label<box.y+2*u){al='right';lx=ex2-9*u;ly0=ey2+fs.label*1.25;if(lx-tw<box.x){al='left';lx=ex2+9*u;}}
     else lx=clamp(ex2,box.x+tw/2,box.x+box.w-tw/2);
-    var bx0=al==='right'?lx-tw:al==='left'?lx:lx-tw/2;
-    ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(bx0-3*u,ly0-fs.label*0.95,tw+6*u,fs.label*0.3+lh*lines.length);
-    lines.forEach(function(t,k){text(ctx,t,lx,ly0+k*lh,{size:fs.label,color:'#d0d0d0',align:al});});
+    var cx=al==='right'?lx-tw/2:al==='left'?lx+tw/2:lx;   // 두 줄은 항상 서로 가운데 정렬
+    ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(cx-tw/2-3*u,ly0-fs.label*0.95,tw+6*u,fs.label*0.3+lh*lines.length);
+    lines.forEach(function(t,k){text(ctx,t,cx,ly0+k*lh,{size:fs.label,color:'#d0d0d0',align:'center'});});
   }
   if(o.markerD!=null&&o.markerD>=r0-1&&o.markerD<=r1+1){
     var md=clamp(o.markerD,r0,r1);
@@ -815,15 +815,13 @@ function drawWatch(){
   // top: mode chip
   var chipY=0.128*S,chipFs=0.046*S,lbl,glyph;
   if(M.off){lbl='코스 이탈 '+Math.round(M.offDist)+' m';glyph='warn';}
-  else if(seg.type==='UP'){lbl='오르막 '+seg.no+'/'+seg.upTotal;glyph='up';}
-  else if(seg.type==='DOWN'){lbl='내리막 '+seg.no+'/'+seg.dnTotal;glyph='none';}   // 현재 위치 삼각형과 헷갈리지 않도록 아이콘 없음
-  else{lbl='평지';glyph='flat';}
+  else if(seg.type==='UP'){lbl='오르막 '+seg.no+'/'+seg.upTotal;glyph='none';}
+  else if(seg.type==='DOWN'){lbl='내리막 '+seg.no+'/'+seg.dnTotal;glyph='none';}
+  else{lbl='평지';glyph='none';}   // 모드 표시는 글자만. 아이콘은 코스 이탈 경고에만 씀
   ctx.font='600 '+chipFs+'px '+FONT_KR;
   var gw=glyph==='none'?0:chipFs*0.8,gap=glyph==='none'?0:chipFs*0.35,tw=ctx.measureText(lbl).width,sx=S/2-(gw+gap+tw)/2,gy=chipY-chipFs*0.36;
   ctx.beginPath();
-  if(glyph==='up'){ctx.moveTo(sx,gy+gw*0.45);ctx.lineTo(sx+gw/2,gy-gw*0.45);ctx.lineTo(sx+gw,gy+gw*0.45);ctx.closePath();ctx.fillStyle=UP_ID;ctx.fill();}
-  else if(glyph==='flat'){ctx.fillStyle='#8c8c8c';ctx.fillRect(sx,gy-gw*0.12,gw,gw*0.24);}
-  else if(glyph==='warn'){ctx.arc(sx+gw/2,gy,gw*0.55,0,Math.PI*2);ctx.fillStyle=WARN;ctx.fill();text(ctx,'!',sx+gw/2,gy+chipFs*0.3,{size:chipFs*0.85,color:'#000',weight:700,font:FONT_NUM});}
+  if(glyph==='warn'){ctx.arc(sx+gw/2,gy,gw*0.55,0,Math.PI*2);ctx.fillStyle=WARN;ctx.fill();text(ctx,'!',sx+gw/2,gy+chipFs*0.3,{size:chipFs*0.85,color:'#000',weight:700,font:FONT_NUM});}
   text(ctx,lbl,sx+gw+gap,chipY,{size:chipFs,color:'#f0f0f0',weight:600,align:'left'});
 
   // big grade
