@@ -226,7 +226,7 @@ tbody tr.cur td:first-child::before{content:"";display:inline-block;width:6px;he
         <div class="group-head"><h2>앱 설정</h2><span>properties로 미리 정하는 값</span></div>
         <div class="row">
           <div class="lbl">세로 배율<small>모든 구간에 같은 비율을 씁니다</small></div>
-          <div class="seg" data-key="exag"><button type="button" data-v="1">1×</button><button type="button" data-v="2">2×</button><button type="button" data-v="3">3×</button><button type="button" data-v="5">5×</button></div>
+          <div class="seg" data-key="exag"><button type="button" data-v="2">2×</button><button type="button" data-v="3">3×</button><button type="button" data-v="4">4×</button></div>
         </div>
         <div class="row">
           <div class="lbl">스케일 방식<small>자동은 기존 가민 그래프와 비교용</small></div>
@@ -279,7 +279,7 @@ tbody tr.cur td:first-child::before{content:"";display:inline-block;width:6px;he
       <div class="cmp-row">자동 스케일<small>기존 가민 그래프 방식</small></div>
       <div class="screen"><canvas id="c00"></canvas></div>
       <div class="screen"><canvas id="c01"></canvas></div>
-      <div class="cmp-row"><span id="cmp-fixed">고정 비율 2×</span><small>이 앱의 방식</small></div>
+      <div class="cmp-row"><span id="cmp-fixed">고정 비율 3×</span><small>이 앱의 방식</small></div>
       <div class="screen"><canvas id="c10"></canvas></div>
       <div class="screen"><canvas id="c11"></canvas></div>
     </div>
@@ -345,7 +345,7 @@ tbody tr.cur td:first-child::before{content:"";display:inline-block;width:6px;he
       <p>명세의 미결 사항을 아래 값으로 채웠습니다. 실기기 테스트 뒤 조정할 대상입니다.</p>
     </div>
     <dl class="assume">
-      <div><dt>세로 배율 기본값</dt><dd>2× (옵션 1·2·3·5×)</dd></div>
+      <div><dt>세로 배율 기본값</dt><dd>3× (옵션 2·3·4×)</dd></div>
       <div><dt>재샘플 간격</dt><dd>20 m, 포인트 간 거리는 저장하지 않음</dd></div>
       <div><dt>평활화</dt><dd>이동 평균 100 m, 고도 0.1 m 단위로 양자화</dd></div>
       <div><dt>구간 분할</dt><dd>히스테리시스 20 m, 100 m 경사 2% 미만인 끝부분은 평지로 분리</dd></div>
@@ -374,7 +374,7 @@ var FONT_NUM='"Barlow Condensed","IBM Plex Sans KR",system-ui,sans-serif';
 var FONT_KR='"IBM Plex Sans KR",system-ui,-apple-system,"Segoe UI",sans-serif';
 var R_E=6371008.8, RAD=Math.PI/180, BUDGET=128*1024;
 
-var settings={exag:2,scaleMode:'fixed',gradeWin:50,offThresh:50,colorOn:1,size:454,speed:10,offCourse:0,matchMode:'window',interval:20,smooth:100,minClimb:20};
+var settings={exag:3,scaleMode:'fixed',gradeWin:50,offThresh:50,colorOn:1,size:454,speed:10,offCourse:0,matchMode:'window',interval:20,smooth:100,minClimb:20};
 
 var RAW=null, C=null;
 var sim={d:0,v:3,playing:false,acc:0,nx:0,ny:0,off:0,gx:0,gy:0};
