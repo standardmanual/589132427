@@ -7,7 +7,7 @@
 # 준비
 #   저장소 Settings → Secrets and variables → Actions → New repository secret
 #   이름: CIQ_DEVELOPER_KEY_B64
-#   값  : 개발자 키 파일(.der 또는 .pem)을 Base64로 인코딩한 한 줄 문자열
+#   값  : .pem 키 파일의 내용 그대로, 또는 .der 키 파일을 Base64로 바꾼 한 줄 문자열
 #   스토어 앱은 처음 업로드한 키로만 업데이트할 수 있으므로 항상 같은 키를 씁니다.
 #
 # SDK는 Garmin 공식 주소에서 받습니다. 기기 파일(fēnix 8 43mm, 47/51mm)은 공개 저장소
@@ -80,7 +80,13 @@ jobs:
         run: |
           set -e
           if [ -n "$KEY_B64" ]; then
-            echo "$KEY_B64" | tr -d ' \r\n' | base64 -d > "$RUNNER_TEMP/key.raw"
+            if printf '%s' "$KEY_B64" | grep -q "BEGIN"; then
+              # .pem 파일 내용을 그대로 붙여 넣은 경우
+              printf '%s\n' "$KEY_B64" > "$RUNNER_TEMP/key.raw"
+            else
+              # .der 파일을 Base64로 바꿔 붙여 넣은 경우
+              echo "$KEY_B64" | tr -d ' \r\n' | base64 -d > "$RUNNER_TEMP/key.raw"
+            fi
             if grep -q "BEGIN" "$RUNNER_TEMP/key.raw"; then
               # PEM이면 DER(PKCS#8)로 바꿉니다
               openssl pkcs8 -topk8 -inform PEM -outform DER -in "$RUNNER_TEMP/key.raw" -out "$RUNNER_TEMP/key.der" -nocrypt

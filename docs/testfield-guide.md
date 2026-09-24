@@ -17,16 +17,37 @@ USB 없이 **Connect IQ 스토어의 베타 앱**으로 올려 폰에서 설치�
 ## 1. 시험 서버 (완료)
 `https://standardmanual.github.io/589132427/t/ping.txt`에서 `pong`이 보이면 준비된 것입니다.
 
-## 2. 개발자 키를 저장소 비밀값으로 등록 (한 번만)
+## 2. 개발자 키를 GitHub에 맡기기 (한 번만)
 
-스토어 앱은 **처음 올린 키로만 업데이트**할 수 있습니다. 가지고 계신 개발자 키를 GitHub 비밀값으로 넣어 두면, 빌드가 항상 그 키로 서명합니다. 키는 채팅이나 저장소 파일에 올리지 마세요. 키를 잃어버리면 같은 앱을 다시 올릴 수 없으니 백업해 두세요.
+**왜 필요한가:** 개발자 키는 "이 앱은 내가 만들었다"는 도장입니다. 스토어는 처음 찍은 도장과 같은 도장이 찍힌 파일만 업데이트로 받아 줍니다. GitHub가 대신 빌드하려면 이 도장을 GitHub의 비밀 금고(Secret)에 넣어 둬야 합니다. 금고에 넣은 값은 나중에 아무도, 본인도 다시 볼 수 없고 빌드할 때만 쓰입니다.
 
-1. 키 파일을 Base64 한 줄로 바꿉니다. 키 파일은 보통 `developer_key` 또는 `developer_key.der`입니다. `.pem`도 됩니다.
-   - macOS 터미널: `base64 -i developer_key.der | pbcopy`
-   - Windows PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("developer_key.der")) | Set-Clipboard`
-   - Linux: `base64 -w0 developer_key.der`
-2. GitHub 저장소 **Settings → Secrets and variables → Actions → New repository secret**을 누릅니다.
-3. 이름 `CIQ_DEVELOPER_KEY_B64`, 값에 1번에서 복사한 문자열을 붙여 넣고 저장합니다.
+**1단계. 키 파일 찾기**
+Connect IQ를 설정할 때 만든 파일입니다. 이름은 보통 `developer_key.der`, `developer_key.pem`, 또는 `developer_key`입니다.
+
+**2단계. 키를 글자로 복사하기**
+금고에는 글자만 넣을 수 있습니다.
+
+- **`.pem` 파일이 있으면 (가장 쉬움):** 메모장이나 텍스트 편집기로 열면 `-----BEGIN PRIVATE KEY-----`로 시작하는 글자가 보입니다. 처음부터 끝까지 전부 선택해 복사합니다.
+- **`.der` 파일만 있으면:** 이 파일은 글자가 아니라서 글자로 바꿔야 합니다.
+  - **Windows**
+    1. 키 파일이 있는 폴더를 파일 탐색기로 엽니다.
+    2. 위쪽 주소창을 클릭하고 `powershell`을 입력한 뒤 Enter를 누릅니다. 파란 창이 뜹니다.
+    3. 아래 줄을 붙여 넣고 Enter를 누릅니다. 아무것도 안 나오면 정상이고, 결과가 이미 복사된 상태입니다.
+       ```
+       [Convert]::ToBase64String([IO.File]::ReadAllBytes("developer_key.der")) | Set-Clipboard
+       ```
+  - **Mac**
+    1. Spotlight(⌘+스페이스)에서 "터미널"을 엽니다.
+    2. `base64 -i ` (끝에 띄어쓰기 한 칸)를 입력하고, 키 파일을 터미널 창으로 끌어다 놓습니다.
+    3. 이어서 ` | pbcopy`를 입력하고 Enter를 누릅니다. 결과가 이미 복사된 상태입니다.
+
+**3단계. GitHub 금고에 넣기**
+1. `https://github.com/standardmanual/589132427`을 엽니다.
+2. 위쪽 **Settings**(톱니바퀴) → 왼쪽 **Secrets and variables** → **Actions** → 초록 버튼 **New repository secret**을 누릅니다.
+3. **Name**에 `CIQ_DEVELOPER_KEY_B64`를 입력합니다.
+4. **Secret** 칸에 붙여넣기(Ctrl+V 또는 ⌘+V)를 하고 **Add secret**을 누릅니다.
+
+키 파일은 잃어버리면 같은 앱을 다시 업데이트할 수 없으니 안전한 곳에 백업해 두세요. 채팅이나 저장소 파일에는 올리지 마세요.
 
 ## 3. 빌드 (자동)
 
