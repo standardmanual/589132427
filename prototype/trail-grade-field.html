@@ -233,8 +233,12 @@ tbody tr.cur td:first-child::before{content:"";display:inline-block;width:6px;he
           <div class="seg" data-key="scaleMode"><button type="button" data-v="fixed">고정 비율</button><button type="button" data-v="auto">자동 (기존)</button></div>
         </div>
         <div class="row">
-          <div class="lbl">현재 경사 평균 구간<small>코스 데이터 기준, 현재 지점 앞뒤</small></div>
-          <div class="seg" data-key="gradeWin"><button type="button" data-v="50">50 m</button><button type="button" data-v="100">100 m</button><button type="button" data-v="200">200 m</button></div>
+          <div class="lbl">그래프 가로 범위<small>현재 위치 뒤 25%, 앞 75%. 구간은 현재 구간 전체</small></div>
+          <div class="seg" data-key="width"><button type="button" data-v="500">500 m</button><button type="button" data-v="1000">1 km</button><button type="button" data-v="2000">2 km</button><button type="button" data-v="5000">5 km</button><button type="button" data-v="10000">10 km</button><button type="button" data-v="seg">구간</button></div>
+        </div>
+        <div class="row">
+          <div class="lbl">현재 경사 평균 구간<small>현재 지점 앞뒤를 합친 거리, 코스 데이터 기준</small></div>
+          <div class="seg" data-key="gradeWin"><button type="button" data-v="100">100 m</button><button type="button" data-v="200">200 m</button><button type="button" data-v="400">400 m</button></div>
         </div>
         <div class="row">
           <div class="lbl">코스 이탈 임계값</div>
@@ -350,7 +354,8 @@ tbody tr.cur td:first-child::before{content:"";display:inline-block;width:6px;he
       <div><dt>평활화</dt><dd>이동 평균 100 m, 고도 0.1 m 단위로 양자화</dd></div>
       <div><dt>구간 분할</dt><dd>히스테리시스 20 m, 100 m 경사 2% 미만인 끝부분은 평지로 분리</dd></div>
       <div><dt>평지 판정</dt><dd>500 m 이상 고도 폭 15 m 이내인 구간, 150 m 미만 평지는 앞 구간에 합침</dd></div>
-      <div><dt>현재 경사</dt><dd>코스 데이터 기준 현재 지점 앞뒤 50 m 창의 평균</dd></div>
+      <div><dt>현재 경사</dt><dd>코스 데이터 기준 현재 지점 앞뒤를 합친 100 m의 평균</dd></div>
+      <div><dt>그래프 가로 범위</dt><dd>2 km 고정, 현재 위치 뒤 500 m와 앞 1.5 km. 넘치는 고도는 잘라내고 가장자리에 남은 m 표시</dd></div>
       <div><dt>모드 전환</dt><dd>새 구간으로 30 m 들어간 뒤 전환해 경계 깜빡임 방지</dd></div>
       <div><dt>위치 매칭</dt><dd>직전 매칭 기준 −200 m ~ +1 km 탐색, 30초 이상 잃으면 전체 탐색</dd></div>
       <div><dt>경사 색 구간</dt><dd>0–5 · 5–10 · 10–15 · 15–20 · 20–30 · 30% 이상, 내리막은 차가운 계열</dd></div>
@@ -374,7 +379,7 @@ var FONT_NUM='"Barlow Condensed","IBM Plex Sans KR",system-ui,sans-serif';
 var FONT_KR='"IBM Plex Sans KR",system-ui,-apple-system,"Segoe UI",sans-serif';
 var R_E=6371008.8, RAD=Math.PI/180, BUDGET=128*1024;
 
-var settings={exag:3,scaleMode:'fixed',gradeWin:50,offThresh:50,colorOn:1,size:454,speed:10,offCourse:0,matchMode:'window',interval:20,smooth:100,minClimb:20};
+var settings={exag:3,scaleMode:'fixed',width:2000,gradeWin:100,offThresh:50,colorOn:1,size:454,speed:10,offCourse:0,matchMode:'window',interval:20,smooth:100,minClimb:20};
 
 var RAW=null, C=null;
 var sim={d:0,v:3,playing:false,acc:0,nx:0,ny:0,off:0,gx:0,gy:0};
@@ -657,15 +662,28 @@ function seek(d){
 
 /* ---------- profile renderer (워치와 비교 그래프가 공유) ---------- */
 function drawProfile(ctx,box,o){
-  var I=C.interval,E=C.ele,r0=Math.max(0,o.r0),r1=Math.min(C.total,o.r1),ds=[r0],es=[eleAt(r0)],i;
+  // o.win: 가로 범위 고정 모드. [o.w0, o.w1]이 항상 그래프 폭 전체이고, 코스 밖은 비워 둡니다.
+  var I=C.interval,E=C.ele,win=!!o.win;
+  var w0=win?o.w0:Math.max(0,o.r0),w1=win?o.w1:Math.min(C.total,o.r1);
+  var r0=Math.max(0,w0),r1=Math.min(C.total,w1),ds=[r0],es=[eleAt(r0)],i;
   for(i=Math.floor(r0/I)+1;i*I<r1;i++){ds.push(i*I);es.push(E[i]);}
   ds.push(r1);es.push(eleAt(r1));
   var mn=Infinity,mx=-Infinity;es.forEach(function(e){if(e<mn)mn=e;if(e>mx)mx=e;});
-  var spanD=Math.max(1,r1-r0),spanE=Math.max(2,mx-mn),kx,ky;
-  if(o.fixed){var k=Math.min(box.w/spanD,box.h/(spanE*o.exag));kx=k;ky=k*o.exag;}   // 가로·세로 같은 비율로 함께 축소
-  else{kx=box.w/spanD;ky=box.h/spanE;}                                            // 기존 방식: 세로만 따로 맞춤
-  var ox=box.x+(box.w-spanD*kx)/2,base=box.y+box.h,u=o.u,fs=o.fs;
-  function X(d){return ox+(d-r0)*kx;} function Y(e){return base-(e-mn)*ky;}
+  var spanE=Math.max(2,mx-mn),kx,ky,vb=mn,xo;
+  if(win){
+    kx=box.w/Math.max(1,w1-w0);
+    if(o.fixed){ky=kx*o.exag;vb=o.vBase;}   // 축척 고정: 넘치는 고도는 줄이지 않고 잘라냄
+    else ky=box.h/spanE;                    // 기존 방식: 세로만 따로 맞춤
+    xo=box.x+(r0-w0)*kx;
+  }else{
+    var spanD=Math.max(1,r1-r0);
+    if(o.fixed){var k=Math.min(box.w/spanD,box.h/(spanE*o.exag));kx=k;ky=k*o.exag;}   // 가로·세로 같은 비율로 함께 축소
+    else{kx=box.w/spanD;ky=box.h/spanE;}                                            // 기존 방식: 세로만 따로 맞춤
+    xo=box.x+(box.w-spanD*kx)/2;
+  }
+  var base=box.y+box.h,u=o.u,fs=o.fs;
+  function X(d){return xo+(d-r0)*kx;} function Y(e){return base-(e-vb)*ky;}
+  ctx.save();ctx.beginPath();ctx.rect(box.x-2,box.y-3*u,box.w+4,box.h+3*u+2);ctx.clip();
   var n=ds.length-1;
   function colAt(q){var dm=(ds[q]+ds[q+1])/2;if(dm<o.c0||dm>o.c1)return '#242424';if(!o.colorOn)return '#6a6a6a';return gradeColor(gradeAt(dm,60));}
   var q=0;
@@ -679,6 +697,7 @@ function drawProfile(ctx,box,o){
   function path(){ctx.beginPath();for(var t=0;t<ds.length;t++){var px=X(ds[t]),py=Y(es[t]);if(t)ctx.lineTo(px,py);else ctx.moveTo(px,py);}}
   ctx.lineJoin='round';path();ctx.strokeStyle='#4a4a4a';ctx.lineWidth=1.3*u;ctx.stroke();
   ctx.save();ctx.beginPath();ctx.rect(X(o.c0),box.y-4,X(o.c1)-X(o.c0),box.h+8);ctx.clip();path();ctx.strokeStyle='#e8e8e8';ctx.lineWidth=1.6*u;ctx.stroke();ctx.restore();
+  ctx.restore();
   if(o.markerD!=null){var mxp=X(clamp(o.markerD,r0,r1));if(mxp>box.x-4){ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(box.x-4,box.y-2,mxp-(box.x-4),box.h+4);}}
   ctx.fillStyle='#2c2c2c';ctx.fillRect(box.x,base+1,box.w,Math.max(1,u));
   if(o.fan&&o.fixed){ // 경사 기준선: 같은 배율로 그린 10·20·30%
@@ -690,13 +709,23 @@ function drawProfile(ctx,box,o){
       if(prevY===null||Math.abs(prevY-ey)>=fs.fan*0.95){text(ctx,g+'%',ex+dir*4*u,ey+fs.fan*0.35,{size:fs.fan,color:'#7d7d7d',align:dir>0?'left':'right',weight:500,font:FONT_NUM});prevY=ey;}
     });
   }
-  if(o.endD!=null&&o.endD>=r0&&o.endD<=r1){
-    var ex2=X(o.endD),ey2=Y(eleAt(o.endD));
+  if(win&&o.fixed&&o.markerD!=null){ // 화면 밖으로 잘린 앞쪽 고도를 가장자리에 표시
+    var aMx=-Infinity,aMn=Infinity;
+    for(var a=0;a<ds.length;a++){if(ds[a]>=o.markerD){if(es[a]>aMx)aMx=es[a];if(es[a]<aMn)aMn=es[a];}}
+    var above=aMx-(vb+box.h/ky),below=vb-aMn;
+    if(above>=1)edgeBadge(ctx,true,'+'+Math.round(above)+' m',box.x+box.w-2*u,box.y+fs.label*0.95,fs.label,u);
+    if(below>=1)edgeBadge(ctx,false,'−'+Math.round(below)+' m',box.x+box.w-2*u,base-5*u,fs.label,u);
+  }
+  var endY=o.endD!=null?Y(eleAt(o.endD)):0;
+  if(o.endD!=null&&o.endD>=r0&&o.endD<=r1&&endY>=box.y-1&&endY<=base+1){
+    var ex2=X(o.endD),ey2=endY;
     ctx.beginPath();ctx.arc(ex2,ey2,4.5*u,0,Math.PI*2);ctx.fillStyle='#000';ctx.fill();ctx.lineWidth=1.6*u;ctx.strokeStyle='#e8e8e8';ctx.stroke();
     ctx.font='500 '+fs.label+'px '+FONT_KR;var tw=ctx.measureText(o.endLabel).width,lx,ly=ey2-10*u,al='center';
-    if(ly-fs.label<box.y-2){al='right';lx=ex2-10*u;ly=ey2+fs.label*0.35;if(lx-tw<box.x){al='left';lx=ex2+10*u;}}
+    if(ly-fs.label<box.y+2*u){al='right';lx=ex2-9*u;ly=ey2+fs.label*1.25;if(lx-tw<box.x){al='left';lx=ex2+9*u;}}
     else lx=clamp(ex2,box.x+tw/2,box.x+box.w-tw/2);
-    text(ctx,o.endLabel,lx,ly,{size:fs.label,color:'#c4c4c4',align:al});
+    var bx0=al==='right'?lx-tw:al==='left'?lx:lx-tw/2;
+    ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(bx0-3*u,ly-fs.label*0.95,tw+6*u,fs.label*1.25);
+    text(ctx,o.endLabel,lx,ly,{size:fs.label,color:'#d0d0d0',align:al});
   }
   if(o.markerD!=null&&o.markerD>=r0-1&&o.markerD<=r1+1){
     var md=clamp(o.markerD,r0,r1),px=X(md),py=Y(eleAt(md));
@@ -715,6 +744,30 @@ function drawProfile(ctx,box,o){
     text(ctx,lbl,sx+bpx+gap,sy,{size:fs.scale,color:'#8f8f8f',align:'left'});
   }
   return {kx:kx,ky:ky};
+}
+function edgeBadge(ctx,up,label,rx,by,size,u){
+  ctx.font='600 '+size+'px '+FONT_KR;
+  var tw=ctx.measureText(label).width,tri=size*0.62,gap=4*u,w=tri+gap+tw+10*u,h=size*1.35,x=rx-w,y=by-size*0.98;
+  ctx.fillStyle='rgba(0,0,0,.82)';ctx.fillRect(x,y,w,h);
+  var tx=x+5*u,ty=y+h/2;ctx.beginPath();
+  if(up){ctx.moveTo(tx,ty+tri*0.45);ctx.lineTo(tx+tri/2,ty-tri*0.45);ctx.lineTo(tx+tri,ty+tri*0.45);}
+  else{ctx.moveTo(tx,ty-tri*0.45);ctx.lineTo(tx+tri/2,ty+tri*0.45);ctx.lineTo(tx+tri,ty-tri*0.45);}
+  ctx.closePath();ctx.fillStyle='#dcdcdc';ctx.fill();
+  text(ctx,label,tx+tri+gap,by,{size:size,color:'#dcdcdc',weight:600,align:'left'});
+}
+function mmRange(a,b){
+  var I=C.interval,mn=Infinity,mx=-Infinity;
+  function add(e){if(e<mn)mn=e;if(e>mx)mx=e;}
+  add(eleAt(a));for(var i=Math.floor(a/I)+1;i*I<b;i++)add(C.ele[i]);add(eleAt(b));
+  return {mn:mn,mx:mx};
+}
+// 가로 범위 고정 모드의 세로 위치: 다 들어가면 바닥 맞춤, 넘치면 앞쪽을 우선해 러너가 늘 화면 안에 있게 함
+function windowBase(d,w0,w1,V){
+  var all=mmRange(Math.max(0,w0),Math.min(C.total,w1)),ah=mmRange(d,Math.min(C.total,w1)),re=eleAt(d);
+  if(all.mx-all.mn<=V)return all.mn;
+  if(ah.mx-ah.mn<=V)return clamp(all.mn,ah.mx-V,ah.mn);
+  var climbing=eleAt(Math.min(C.total,w1))>=re;
+  return clamp(re-(climbing?0.25:0.75)*V,ah.mn,ah.mx-V);
 }
 function viewRange(seg,next){
   var c0=seg.startD,c1=seg.endD,endD=seg.endD,endLabel;
@@ -735,9 +788,15 @@ function drawWatch(){
   var I=C.interval,seg=C.segs[dispSeg],d=clamp(M.idx*I,0,C.total),u=S/454;
   var next=seg.type==='FLAT'?nextNonFlat(dispSeg):null,vr=viewRange(seg,next);
   var box={x:0.07*S,y:0.34*S,w:0.86*S,h:0.33*S};
-  drawProfile(ctx,box,{r0:vr.r0,r1:vr.r1,c0:vr.c0,c1:vr.c1,endD:vr.endD,endLabel:vr.endLabel,markerD:d,exag:settings.exag,
+  var po={r0:vr.r0,r1:vr.r1,c0:vr.c0,c1:vr.c1,endD:vr.endD,endLabel:vr.endLabel,markerD:d,exag:settings.exag,
     fixed:settings.scaleMode==='fixed',colorOn:!!settings.colorOn,fan:seg.type==='DOWN'?'right':'left',u:u*1.3,
-    fs:{label:0.036*S,fan:0.03*S,scale:0.03*S},scaleBar:{y:0.697*S,align:'center',cx:S/2},off:M.off});
+    fs:{label:0.036*S,fan:0.03*S,scale:0.03*S},scaleBar:{y:0.697*S,align:'center',cx:S/2},off:M.off};
+  if(settings.width!=='seg'){ // 가로 범위 고정: 현재 위치를 왼쪽 25%에 두고 앞쪽 75%를 보여 줌
+    var Dw=settings.width;
+    po.win=true;po.w0=d-0.25*Dw;po.w1=d+0.75*Dw;po.c0=Math.max(0,po.w0);po.c1=Math.min(C.total,po.w1);
+    if(po.fixed)po.vBase=windowBase(d,po.w0,po.w1,box.h/((box.w/Dw)*settings.exag));
+  }
+  drawProfile(ctx,box,po);
 
   // top: mode chip
   var chipY=0.128*S,chipFs=0.046*S,lbl,glyph;
