@@ -42,6 +42,9 @@ class JamTrailView extends WatchUi.DataField {
         var now = System.getTimer();
         if (!_started) {
             _started = true;
+            // 같은 앱 ID로 먼저 설치했던 시험 필드가 남긴 값을 지웁니다.
+            CourseStore.remove("jt_runs");
+            CourseStore.remove("jt_last");
             // 폰 없이도 저장된 코스로 바로 그립니다.
             var active = CourseStore.getString(CourseStore.K_ACTIVE);
             if (active != null) {

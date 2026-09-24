@@ -9,17 +9,18 @@
 | `gpx/` | 코스 원본. 여기에 GPX를 올리면 GitHub Actions가 변환해 Pages에 배포합니다 |
 | `https://standardmanual.github.io/589132427/` | 코스 서버. `index.txt`(코스 목록), `current.txt`(현재 코스) |
 
-시험 필드(JAM Trail Test)와는 다른 앱입니다. 시험 필드는 그대로 두어도 됩니다.
+JAM Trail은 스토어에 베타로 등록해 둔 앱(처음에 시험 필드 "JAM Trail Test"로 올린 앱)의 **새 버전**으로 올립니다.
+스토어는 등록한 앱 ID(`ec7e18be-…`)가 다른 파일을 새 버전으로 받지 않아서, 본 앱이 이 ID를 이어받았습니다.
+시험 필드는 할 일을 마쳤고, 겹치지 않도록 새 ID로 바꿨습니다.
 
 ---
 
-## 1. 스토어에 베타 앱으로 올리기 (처음 한 번)
+## 1. 스토어에 올리기
 
-1. `bin/JAMTRAIL.iq`를 **압축을 풀지 말고** 그대로 `https://apps-developer.garmin.com`에 올립니다.
-2. **새 앱**으로 올립니다(시험 필드의 업데이트가 아님). 앱 이름 JAM Trail, 분류 데이터 필드, **Beta App**에 체크합니다.
-3. 개발자 키는 `jamtrail_developer_key.der`입니다. 스토어 앱은 처음 올린 키로만 업데이트할 수 있으니, 이후 버전도 `scripts/build-app.sh`로 만든 파일을 올립니다.
-4. 폰에서 앱 페이지(`https://apps.garmin.com/apps/<앱 ID>`)를 열어 설치하고 시계를 동기화합니다.
-5. 시계에서 트레일런 활동 설정 → 데이터 화면 → 새 화면 추가 → **1필드 레이아웃** → Connect IQ 필드 → **JAM Trail**.
+1. `https://apps-developer.garmin.com`에서 JAM Trail Test 앱을 열고 **새 버전 올리기**를 고릅니다.
+2. `bin/JAMTRAIL.iq`를 **압축을 풀지 말고** 그대로 올립니다. 버전을 물으면 1.1.0(또는 이전보다 높은 값)으로 넣습니다. 앱 이름과 설명은 JAM Trail로 바꿔도 됩니다.
+3. 개발자 키는 `jamtrail_developer_key.der`입니다. 스토어 앱은 처음 올린 키로만 업데이트할 수 있으니, 이후 버전도 `scripts/build-app.sh`로 만든 파일을 올리고 `app/manifest.xml`의 `version`을 올립니다.
+4. 폰에서 시계를 동기화하면 JAM Trail Test가 JAM Trail로 바뀝니다. 시험 필드를 넣어 둔 데이터 화면에 그대로 JAM Trail이 나옵니다. 없으면 트레일런 활동 설정 → 데이터 화면 → 새 화면 추가 → **1필드 레이아웃** → Connect IQ 필드 → **JAM Trail**.
 
 ## 2. 코스 올리기
 
