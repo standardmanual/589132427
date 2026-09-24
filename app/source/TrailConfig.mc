@@ -13,4 +13,7 @@ module TrailConfig {
     const TIMEOUT_MS = 60000;
     // 완료·오류 문구를 보여 주는 시간 (명세 4.3)
     const MESSAGE_MS = 5000;
+
+    // 시험용 로그: 그래프 열 값(scripts/check_profile.py)과 메모리 최고치
+    const DEBUG_LOG = true;
 }

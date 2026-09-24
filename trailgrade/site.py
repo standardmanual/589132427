@@ -3,7 +3,9 @@
 site/
   current.txt          현재 코스 ID 한 줄 (줄바꿈 없음)
   index.txt            코스 목록, 최신순 최대 20개: <id>\\t<이름>\\t<길이 m>\\t<누적 상승 m>\\t<조각 수>
-  c/<id>/m.txt         매니페스트 key=value 줄: v, id, name, bytes, chunks, crc32, len
+  c/<id>/m.txt         매니페스트 key=value 줄: v, id, name, bytes, chunks, crc32, len, gain, loss, emin, emax
+                       gain·loss는 누적 상승·하강(m), emin·emax는 최저·최고 고도(0.1 m 정수).
+                       시계가 코스 전체를 한 번에 훑으면 워치독(실행 시간 한도)에 걸려 변환기가 미리 계산합니다.
   c/<id>/<i>.txt       Base64 조각 (줄바꿈 없음)
   c/<id>/preview.png   검증용 프로파일 그림
 """
@@ -46,6 +48,8 @@ def write_course(site: Path, c: Course, name: str, cid: str, crc: str, nbytes: i
     manifest = {
         "v": 1, "id": cid, "name": built.name, "bytes": nbytes,
         "chunks": len(chunks), "crc32": crc, "len": built.length_m,
+        "gain": built.gain_m, "loss": js_round(c.loss),
+        "emin": js_round(min(c.ele) * 10), "emax": js_round(max(c.ele) * 10),
     }
     (d / "m.txt").write_text("".join(f"{k}={v}\n" for k, v in manifest.items()), encoding="utf-8")
     if preview_png is not None:

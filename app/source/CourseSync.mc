@@ -234,10 +234,17 @@ class CourseSync {
         var name = m["name"];
         _name = (name instanceof String) ? name as String : id;
         _chunks = chunks as Number;
-        var len = m["len"];
-        CourseStore.put(CourseStore.manifestKey(id), {
-            "name" => _name, "bytes" => bytes, "chunks" => _chunks, "len" => (len instanceof Number) ? len : 0
-        });
+        var stored = { "name" => _name, "bytes" => bytes, "chunks" => _chunks } as Dictionary<String, Application.Storage.ValueType>;
+        var keys = ["len", "gain", "loss", "emin", "emax"];
+        for (var k = 0; k < keys.size(); k++) {
+            var v = m[keys[k]];
+            if (!(v instanceof Number)) {
+                fail("매니페스트 오류", now);
+                return;
+            }
+            stored[keys[k]] = v;
+        }
+        CourseStore.put(CourseStore.manifestKey(id), stored);
 
         // 같은 코스를 받다 끊겼으면 이어받고, 다른 코스를 받다 말았으면 그 조각을 지웁니다.
         _next = 0;
@@ -370,7 +377,8 @@ class CourseSync {
             }
             var key = line.substring(0, eq) as String;
             var val = trim(line.substring(eq + 1, line.length()) as String);
-            if (key.equals("bytes") || key.equals("chunks") || key.equals("len")) {
+            if (key.equals("bytes") || key.equals("chunks") || key.equals("len") || key.equals("gain")
+                    || key.equals("loss") || key.equals("emin") || key.equals("emax")) {
                 out[key] = val.toNumber();
             } else {
                 out[key] = val;

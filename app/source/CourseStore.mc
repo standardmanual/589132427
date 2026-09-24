@@ -7,7 +7,7 @@ import Toybox.System;
 // 코스 저장소 (명세 7.3). 키 구성:
 //   active        활성 코스 ID
 //   prev          직전 코스 ID
-//   m_<id>        매니페스트 {name, bytes, chunks, len, ok}. ok=1이면 검증까지 끝난 완성 코스
+//   m_<id>        매니페스트 {name, bytes, chunks, len, gain, loss, emin, emax, ok}. ok=1이면 검증까지 끝난 완성 코스
 //   c_<id>_<i>    조각. Base64를 풀어 ByteArray로 저장 (SDK 9.2의 Storage.ValueType에 ByteArray 포함,
 //                 실기기·시뮬레이터에서 저장 확인). 거부되는 기기에서는 Base64 문자열 그대로 저장합니다.
 //   dl            진행 중인 다운로드 {id, next}
@@ -64,7 +64,8 @@ module CourseStore {
     function isComplete(id as String) as Boolean {
         var m = manifest(id);
         var ok = (m != null) ? m["ok"] : null;
-        return ok instanceof Number && ok == 1;
+        // emax가 없는 매니페스트는 예전 형식이라 다시 받습니다.
+        return ok instanceof Number && ok == 1 && (m as Dictionary)["emax"] instanceof Number;
     }
 
     // Base64 조각을 풀어 저장합니다. 저장 공간이 모자라면 false.
@@ -159,7 +160,7 @@ module CourseStore {
             }
         }
         var name = m["name"];
-        var course = new TrailCourse(id, (name instanceof String) ? name as String : id, bytes);
+        var course = new TrailCourse(id, (name instanceof String) ? name as String : id, bytes, m);
         return course.valid ? course : null;
     }
 

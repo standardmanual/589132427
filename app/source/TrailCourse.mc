@@ -3,11 +3,11 @@ import Toybox.Lang;
 // 복원한 코스 바이너리 (명세 6.4). 데이터는 ByteArray 하나에 두고 필요할 때 읽습니다.
 //   헤더 20 B, 고도 N × u16 (0.1 m), 좌표 (N−1) × (i16, i16) 델타, 구간 레코드 × 10 B. 빅엔디언.
 class TrailCourse {
-    const HEADER = 20;
-    const SEG_SIZE = 10;
-    const FLAT = 0;
-    const UP = 1;
-    const DOWN = 2;
+    static const HEADER = 20;
+    static const SEG_SIZE = 10;
+    static const FLAT = 0;
+    static const UP = 1;
+    static const DOWN = 2;
 
     var id as String;
     var name as String;
@@ -23,12 +23,28 @@ class TrailCourse {
     var segOff as Number = 0;
     var upCount as Number = 0;
     var downCount as Number = 0;
+    // 코스 전체 값 (매니페스트, 변환기가 계산). 시계에서 전체를 훑으면 워치독에 걸립니다.
+    var gainM as Number = 0;
+    var lossM as Number = 0;
+    var eleMinDm as Number = 0; // 0.1 m
+    var eleMaxDm as Number = 0;
 
-    function initialize(courseId as String, courseName as String, bytes as ByteArray) {
+    function initialize(courseId as String, courseName as String, bytes as ByteArray, manifest as Dictionary) {
         id = courseId;
         name = courseName;
         data = bytes;
         parse();
+        var keys = ["gain", "loss", "emin", "emax"];
+        for (var k = 0; k < keys.size(); k++) {
+            if (!(manifest[keys[k]] instanceof Number)) {
+                valid = false;
+                return;
+            }
+        }
+        gainM = manifest["gain"] as Number;
+        lossM = manifest["loss"] as Number;
+        eleMinDm = manifest["emin"] as Number;
+        eleMaxDm = manifest["emax"] as Number;
     }
 
     function parse() as Void {
@@ -57,8 +73,9 @@ class TrailCourse {
         valid = true;
     }
 
+    // 빅엔디언 u16. decodeNumber는 호출마다 옵션 Dictionary를 만들어 반복문에서 느리므로 바이트를 직접 읽습니다.
     function u16(offset as Number) as Number {
-        return data.decodeNumber(Lang.NUMBER_FORMAT_UINT16, { :offset => offset, :endianness => Lang.ENDIAN_BIG }) as Number;
+        return (data[offset] << 8) | data[offset + 1];
     }
 
     function lengthM() as Number {

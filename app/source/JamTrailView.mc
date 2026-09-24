@@ -5,12 +5,14 @@ import Toybox.System;
 import Toybox.WatchUi;
 
 // JAM Trail 데이터 필드.
-// 4단계: 코스 받기·저장·복원과 상태 표시(명세 4.3). 그래프(5단계 이후)가 들어갈 자리에는
-// 지금은 복원한 코스 요약을 보여 줍니다.
+// 4단계: 코스 받기·저장·복원과 상태 표시(명세 4.3).
+// 5단계: 코스 전체 정적 그래프(CourseProfile). 위치에 따른 그래프는 6·7단계에서 바꿉니다.
 class JamTrailView extends WatchUi.DataField {
     var _sync as CourseSync;
     var _course as TrailCourse? = null;
+    var _profile as CourseProfile? = null;
     var _started as Boolean = false;
+    var _peakMem as Number = 0;
 
     function initialize() {
         DataField.initialize();
@@ -37,6 +39,19 @@ class JamTrailView extends WatchUi.DataField {
         var c = _sync.takeLoaded();
         if (c != null) {
             _course = c;
+            _profile = null; // 다음 그리기에서 새 코스로 다시 만듭니다
+        }
+        trackMemory("compute");
+    }
+
+    // 메모리 최고치가 1 KB 넘게 오를 때마다 기록합니다.
+    function trackMemory(where as String) as Void {
+        var used = System.getSystemStats().usedMemory;
+        if (used > _peakMem + 1024) {
+            _peakMem = used;
+            if (TrailConfig.DEBUG_LOG) {
+                System.println("mem peak " + (used / 1024) + "k/" + (System.getSystemStats().totalMemory / 1024) + "k at " + where);
+            }
         }
     }
 
@@ -62,7 +77,19 @@ class JamTrailView extends WatchUi.DataField {
             return;
         }
 
-        drawCourseSummary(dc, s, course);
+        var profile = _profile;
+        if (profile == null) {
+            var t0 = System.getTimer();
+            profile = new CourseProfile(course, s);
+            _profile = profile;
+            if (TrailConfig.DEBUG_LOG) {
+                System.println("profile built in " + (System.getTimer() - t0) + " ms, mem " + (System.getSystemStats().usedMemory / 1024) + "k");
+                profile.logColumns(course, s);
+            }
+        }
+        drawCourseHeader(dc, s, course, profile);
+        profile.draw(dc);
+        trackMemory("draw");
 
         var msg = _sync.message(now);
         if (_sync.isDownloading()) {
@@ -72,24 +99,19 @@ class JamTrailView extends WatchUi.DataField {
         }
     }
 
-    // 5단계에서 그래프로 바뀔 임시 화면: 복원한 코스가 맞는지 확인하는 용도입니다.
-    function drawCourseSummary(dc as Graphics.Dc, s as Number, c as TrailCourse) as Void {
+    // 그래프 위아래 글자. 7단계에서 명세 4장 화면(모드별 수치)으로 바뀝니다.
+    function drawCourseHeader(dc as Graphics.Dc, s as Number, c as TrailCourse, p as CourseProfile) as Void {
         var cx = s / 2;
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        drawFit(dc, cx, (s * 0.30).toNumber(), Graphics.FONT_SMALL, c.name, "", (s * 0.80).toNumber());
+        drawFit(dc, cx, (s * 0.13).toNumber(), Graphics.FONT_XTINY, c.name, "", (s * 0.62).toNumber());
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        var lh = dc.getFontHeight(Graphics.FONT_XTINY);
-        var y = (s * 0.42).toNumber();
-        var lines = [
-            (c.lengthM() / 1000.0).format("%.2f") + " km · " + c.n + "점",
-            "오르막 " + c.upCount + " · 내리막 " + c.downCount + " · 구간 " + c.segCount,
-            "시작 " + c.ele(0).format("%.0f") + " m · 끝 " + c.ele(c.n - 1).format("%.0f") + " m",
-            "ID " + c.id
-        ];
-        for (var i = 0; i < lines.size(); i++) {
-            dc.drawText(cx, y, Graphics.FONT_XTINY, lines[i], Graphics.TEXT_JUSTIFY_CENTER);
-            y += lh;
-        }
+        dc.drawText(cx, (s * 0.20).toNumber(), Graphics.FONT_XTINY,
+            (c.lengthM() / 1000.0).format("%.2f") + " km · +" + c.gainM + " m", Graphics.TEXT_JUSTIFY_CENTER);
+        drawFit(dc, cx, (s * 0.70).toNumber(), Graphics.FONT_XTINY,
+            "오르막 " + c.upCount + " · 내리막 " + c.downCount + " · 평지 " + (c.segCount - c.upCount - c.downCount),
+            "", (s * 0.80).toNumber());
+        dc.drawText(cx, (s * 0.77).toNumber(), Graphics.FONT_XTINY,
+            p.yMin.format("%.0f") + "–" + p.yMax.format("%.0f") + " m", Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     function center(dc as Graphics.Dc, s as Number, line1 as String, line2 as String?) as Void {
