@@ -6,3 +6,9 @@ developer_key*
 *.prg.debug.xml
 *.iq
 bin/
+
+# 변환기 결과물 (gpx/에서 다시 만들 수 있음)
+pages/c/
+pages/current.txt
+pages/index.txt
+__pycache__/

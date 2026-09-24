@@ -404,10 +404,15 @@ GPX 코스를 기반으로, 트레일러닝 중 현재 위치 주변의 고도 �
 
 ### 6.9 로컬 CLI
 ```
-python -m trailgrade build path/to/course.gpx --out site/ [--interval 20] [--smooth 100] [--min-climb 20]
+python3 -m trailgrade build gpx/ [--out pages] [--interval 20] [--smooth 100] [--min-climb 20] [--chunk-chars 6000] [--dry-run]
+python3 -m unittest discover -s tests -t .
 ```
-- 개발과 테스트용입니다. Actions와 같은 모듈을 씁니다.
-- 테스트 입력: 짧은 코스, 왕복 코스, 100 km급 코스.
+- 구현: `trailgrade/` (표준 라이브러리만 사용, Python 3.11 이상). 기본값은 저장소 루트의 `trailgrade.toml`.
+- 입력은 GPX 파일이나 폴더입니다. 폴더는 수정 시각 순으로 변환하고, 마지막 파일이 현재 코스가 됩니다. 결과는 `pages/`에 쓰고, 로컬 시뮬레이터 서버(`scripts/sim-testfield.sh`)가 이 폴더를 그대로 띄웁니다. 결과물은 `gpx/`에서 다시 만들 수 있어 git에 넣지 않습니다.
+- 테스트 입력: 프로토타입 샘플 코스(`gpx/sample-21k.gpx`), 가상 왕복 코스(5 km), 가상 100 km 코스(`tests/synth.py`).
+- `tests/test_parity.py`는 프로토타입 HTML의 함수를 Node로 직접 실행해(`tests/proto_ref.mjs`) 재샘플 고도와 구간 표가 완전히 같은지 비교합니다.
+- 결과: 샘플 코스 6,620 B·조각 2개·구간 13개(오르막 4, 내리막 3, 평지 6), 가상 100 km 코스 30.5 KB·조각 7개.
+- 해수면 아래 고도는 포맷 범위(0–6,553.5 m) 밖이라 0으로 자르고 경고를 출력합니다.
 
 ---
 
