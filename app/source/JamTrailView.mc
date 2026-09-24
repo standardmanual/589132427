@@ -42,6 +42,16 @@ class JamTrailView extends WatchUi.DataField {
         var now = System.getTimer();
         if (!_started) {
             _started = true;
+            if (TrailConfig.DEBUG_LOG) {
+                // 한글 자모 합치기 자기 시험: 분리된 "트랜스제주 100K" → 완성형 (기대: d2b8 b79c c2a4 c81c c8fc 20 31 30 30 4b)
+                var composed = Hangul.compose("\u1110\u1173\u1105\u1162\u11AB\u1109\u1173\u110C\u1166\u110C\u116E 100K");
+                var codes = "";
+                var cs = composed.toCharArray();
+                for (var k = 0; k < cs.size(); k++) {
+                    codes += cs[k].toNumber().format("%x") + " ";
+                }
+                System.println("hangul test: " + codes);
+            }
             // 같은 앱 ID로 먼저 설치했던 시험 필드가 남긴 값을 지웁니다.
             CourseStore.remove("jt_runs");
             CourseStore.remove("jt_last");

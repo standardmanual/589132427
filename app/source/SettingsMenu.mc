@@ -13,6 +13,12 @@ module MenuUi {
     const ID_COURSE = 100;
     const ID_REFRESH = 101;
 
+    // 글자 크기와 줄 높이 (화면 지름 S에 대한 비율). 실기기 사진을 보고 키웠습니다 (처음 0.052 / 0.04 / 줄 0.19).
+    const FONT_MAIN = 0.072;
+    const FONT_SUB = 0.058;
+    const FONT_TITLE = 0.06;
+    const ROW_H = 0.21;
+
     var _fonts as Fonts? = null;
 
     function fonts() as Fonts {
@@ -31,17 +37,17 @@ module MenuUi {
         var s = screen();
         var w = dc.getWidth();
         var h = dc.getHeight();
-        var f1 = fonts().kr(0.052 * s);
-        var f2 = fonts().kr(0.04 * s);
+        var f1 = fonts().kr(FONT_MAIN * s);
+        var f2 = fonts().kr(FONT_SUB * s);
         var h1 = Graphics.getFontHeight(f1);
         var h2 = sub == null ? 0 : Graphics.getFontHeight(f2);
         var y = (h - h1 - h2) / 2;
-        var maxW = (w * 0.78).toNumber();
+        var maxW = (w * 0.82).toNumber();
         if (mark) {
             // 지금 고른 값: 초록 점
             dc.setColor(0x00df3f, Graphics.COLOR_TRANSPARENT);
             var tw = dc.getTextWidthInPixels(main, f1);
-            dc.fillCircle(w / 2 - (tw < maxW ? tw : maxW) / 2 - (0.03 * s).toNumber(), y + h1 / 2, (0.012 * s).toNumber() + 1);
+            dc.fillCircle(w / 2 - (tw < maxW ? tw : maxW) / 2 - (0.035 * s).toNumber(), y + h1 / 2, (0.015 * s).toNumber() + 1);
         }
         dc.setColor(focused ? Graphics.COLOR_WHITE : 0xc8c8c8, Graphics.COLOR_TRANSPARENT);
         dc.drawText(w / 2, y, f1, fit(dc, f1, main, maxW), Graphics.TEXT_JUSTIFY_CENTER);
@@ -69,9 +75,9 @@ module MenuUi {
 
     function newMenu(title as String) as WatchUi.CustomMenu {
         var s = screen();
-        return new WatchUi.CustomMenu((0.19 * s).toNumber(), Graphics.COLOR_BLACK, {
+        return new WatchUi.CustomMenu((ROW_H * s).toNumber(), Graphics.COLOR_BLACK, {
             :title => new MenuTitle(title),
-            :titleItemHeight => (0.2 * s).toNumber()
+            :titleItemHeight => (0.22 * s).toNumber()
         });
     }
 
@@ -115,7 +121,7 @@ module MenuUi {
             }
             var name = man["name"];
             var len = man["len"];
-            m.addItem(new OptionRow(Settings.COURSE, id, (name instanceof String) ? name : id,
+            m.addItem(new OptionRow(Settings.COURSE, id, (name instanceof String) ? Hangul.compose(name) : id,
                 ((len instanceof Number) ? (len / 1000.0).format("%.1f") + " km · " : "") + (i == 0 ? "지금 코스" : "저장됨")));
             seen.add(id);
         }
@@ -143,7 +149,7 @@ class MenuTitle extends WatchUi.Drawable {
 
     function draw(dc as Graphics.Dc) as Void {
         var s = MenuUi.screen();
-        var f = MenuUi.fonts().kr(0.05 * s);
+        var f = MenuUi.fonts().kr(MenuUi.FONT_TITLE * s);
         dc.setColor(0x9a9a9a, Graphics.COLOR_TRANSPARENT);
         dc.drawText(dc.getWidth() / 2, dc.getHeight() - Graphics.getFontHeight(f) - 4, f, _text, Graphics.TEXT_JUSTIFY_CENTER);
     }
@@ -169,7 +175,7 @@ class SettingRow extends WatchUi.CustomMenuItem {
             } else {
                 var man = CourseStore.manifest(id);
                 var name = man != null ? man["name"] : null;
-                sub = (name instanceof String) ? name : CourseIndex.nameOf(id);
+                sub = (name instanceof String) ? Hangul.compose(name) : CourseIndex.nameOf(id);
             }
         } else if (k == MenuUi.ID_REFRESH) {
             main = "코스 목록 새로고침";

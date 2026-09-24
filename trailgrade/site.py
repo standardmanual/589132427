@@ -12,6 +12,7 @@ site/
 
 from __future__ import annotations
 
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -32,8 +33,11 @@ class Built:
 
 
 def clean_name(name: str) -> str:
-    """탭·줄바꿈은 목록 형식을 깨므로 공백으로 바꿉니다."""
-    return " ".join(name.replace("\t", " ").split()) or "코스"
+    """탭·줄바꿈은 목록 형식을 깨므로 공백으로 바꾸고, 한글 자모를 완성형(NFC)으로 합칩니다.
+
+    맥에서 올린 파일 이름은 자모가 분리된(NFD) 형태로 저장돼, 그대로 두면 시계 글꼴이 글자를 합쳐 그리지 못합니다.
+    """
+    return " ".join(unicodedata.normalize("NFC", name).replace("\t", " ").split()) or "코스"
 
 
 def write_course(site: Path, c: Course, name: str, cid: str, crc: str, nbytes: int,

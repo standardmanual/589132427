@@ -57,6 +57,18 @@ class SiteTest(unittest.TestCase):
         self.assertEqual(int(row[2]), int(m["len"]))
         self.assertEqual(row[4], m["chunks"])
 
+    def test_name_is_normalized_to_nfc(self):
+        """맥에서 올린 파일 이름은 자모가 분리(NFD)돼 있음 → 완성형으로 저장."""
+        import unicodedata
+        nfd = unicodedata.normalize("NFD", "트랜스제주 100K")
+        self.assertNotEqual(nfd, "트랜스제주 100K")
+        gpx = self.tmp / "a.gpx"
+        gpx.write_text(write_gpx(nfd, synth.out_and_back()), encoding="utf-8")
+        self.assertEqual(self.build(gpx)[0], 0)
+        cid = (self.site / "current.txt").read_text(encoding="ascii")
+        self.assertEqual(read_manifest(self.site / "c" / cid / "m.txt")["name"], "트랜스제주 100K")
+        self.assertIn("트랜스제주 100K", (self.site / "index.txt").read_text(encoding="utf-8"))
+
     def test_last_file_becomes_current_and_rebuild_is_stable(self):
         a, b = self.tmp / "a.gpx", self.tmp / "b.gpx"
         a.write_text(write_gpx("A", synth.out_and_back()), encoding="utf-8")

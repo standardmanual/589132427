@@ -166,7 +166,7 @@ module CourseStore {
             }
         }
         var name = m["name"];
-        var course = new TrailCourse(id, (name instanceof String) ? name as String : id, pieces, m);
+        var course = new TrailCourse(id, (name instanceof String) ? Hangul.compose(name as String) : id, pieces, m);
         return course.valid ? course : null;
     }
 }

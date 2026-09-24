@@ -30,13 +30,21 @@ def load_config(path: Path | None) -> dict:
 
 
 def git_time(f: Path) -> int:
-    """파일을 마지막으로 커밋한 시각. 커밋되지 않았으면 0"""
-    try:
-        out = subprocess.run(["git", "log", "-1", "--format=%ct", "--", str(f)],
-                             capture_output=True, text=True, check=True).stdout.strip()
-        return int(out) if out else 0
-    except (OSError, subprocess.CalledProcessError, ValueError):
-        return 0
+    """파일을 마지막으로 커밋한 시각. 커밋되지 않았으면 0
+
+    한글 파일 이름은 macOS 파일 시스템과 git에 저장된 유니코드 정규화(NFC/NFD)가 다를 수 있어 둘 다 찾아봅니다.
+    """
+    for form in ("NFC", "NFD"):
+        try:
+            # macOS git은 경로를 NFC로 바꿔 찾는 설정(core.precomposeunicode)이 켜져 있어 NFD 이름을 못 찾으므로 끕니다.
+            out = subprocess.run(["git", "-c", "core.precomposeunicode=false", "log", "-1", "--format=%ct", "--",
+                                  unicodedata.normalize(form, str(f))],
+                                 capture_output=True, text=True, check=True).stdout.strip()
+        except (OSError, subprocess.CalledProcessError):
+            return 0
+        if out.isdigit():
+            return int(out)
+    return 0
 
 
 def collect_gpx(inputs: list[str], order: str = "mtime") -> list[Path]:

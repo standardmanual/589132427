@@ -21,7 +21,7 @@ module CourseIndex {
             if (f.size() >= 4 && f[0].length() == 10) {
                 var len = f[2].toNumber();
                 var gain = f[3].toNumber();
-                out.add([f[0], f[1],
+                out.add([f[0], Hangul.compose(f[1]),
                     (len != null ? (len / 1000.0).format("%.1f") + " km" : "") + (gain != null ? " · +" + gain + " m" : "")]);
             }
         }
