@@ -408,7 +408,7 @@ GPX 코스를 기반으로, 트레일러닝 중 현재 위치 주변의 고도 �
 
 ### 6.9 로컬 CLI
 ```
-python3 -m trailgrade build gpx/ [--out pages] [--interval 20] [--smooth 100] [--min-climb 20] [--chunk-chars 6000] [--dry-run]
+python3 -m trailgrade build gpx/ [--out pages] [--interval 20] [--smooth 100] [--min-climb 20] [--chunk-chars 6000] [--order mtime|git] [--dry-run]
 python3 -m unittest discover -s tests -t .
 ```
 - 구현: `trailgrade/` (표준 라이브러리만 사용, Python 3.11 이상). 기본값은 저장소 루트의 `trailgrade.toml`.
@@ -548,7 +548,7 @@ python3 -m unittest discover -s tests -t .
 | 6 | 위치 결정(7.5): 가민 코스 축과 길이 확인, GPS 매칭, 누적 거리 | 가민 코스를 따라갈 때와 아닐 때 모두 위치가 맞음. 왕복 구간에서 뒤로 튀지 않음 |
 | 7 | 워치 화면: 모드별 표시(4장), 가로 범위 고정 그래프, 넘침 처리, 구간 레이블 | 재생 중 모드가 자연스럽게 바뀌고, 프로토타입과 같은 화면 |
 | 8 | 시계 안 설정 메뉴(5장), 구간 맞춤 모드, 렌더링 최적화 | 설정 변경 반영, 10 km 창에서도 1초 갱신 부담 없음 |
-| 9 | 실기기 테스트: 세로 배율, 가로 범위, 경사 창 기본값과 색 팔레트 확정 | 실제 트레일에서 사용 |
+| 9 | 실기기 테스트: 세로 배율, 가로 범위, 경사 창 기본값과 색 팔레트 확정. 안내는 `docs/device-test-guide.md` | 실제 트레일에서 사용 |
 | 10 | (선택) 폰 업로드 페이지, 백그라운드 선취득, 좌표 제거, FIT 커스텀 필드, 비공개 베타 배포, 폰 컴패니언 앱 | |
 
 ---
@@ -661,6 +661,12 @@ python3 -m unittest discover -s tests -t .
 | 다른 100 km 코스를 받는 중 (기존 코스 표시 중) | 최고 94 KB (여유 24%) |
 | 검증 직전 기존 코스 내려놓음 | 51 KB |
 | 새 코스 검증·적용 뒤 | 82–85 KB |
+
+### 10.1.7 9단계 준비 (2026-09-25)
+- 빌드를 셋으로 나눴습니다. `app/monkey.jungle`(실기기·스토어: GitHub Pages 서버, 시험 로그 끔, `scripts/build-app.sh` → `bin/JAMTRAIL.iq`), `app/sim.jungle`(시뮬레이터: 로컬 서버, 로그 켬, `scripts/sim-app.sh`), 그리고 시험 재생·둘러보기 빌드.
+- 설정에 **진단 표시**(기본 끔)를 더했습니다. 켜면 마지막 줄에 위치 출처와 코스 위치, 가민 `distanceToDestination`, 가민 값을 쓰지 않은 이유, `nameOfDestination`, 남은 메모리가 나옵니다. 실기기에서 10.1 9번을 사진으로 확인하는 용도입니다.
+- `pages.yml`이 배포 전에 변환기 시험을 돌리고 `gpx/`의 GPX를 `pages/`로 변환합니다. 가장 최근에 커밋한 GPX가 현재 코스입니다(`--order git`).
+- 시험 필드의 서버 주소는 다시 GitHub Pages입니다. `scripts/sim-testfield.sh`는 복사본을 로컬 주소로 바꿔 빌드합니다.
 
 ### 10.2 결정이 필요한 사항
 - [x] 코스 저장소 공개 여부: 이 저장소를 공개로 바꿔 코스 서버로 씀

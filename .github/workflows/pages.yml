@@ -1,4 +1,9 @@
-# pages/ 폴더를 GitHub Pages에 배포합니다 (JAM Trail 코스 서버).
+# JAM Trail 코스 서버를 GitHub Pages에 배포합니다 (명세 6.6–6.7).
+#   1. 변환기 시험을 돌립니다 (python -m unittest).
+#   2. gpx/의 GPX를 변환해 pages/에 코스 조각, 매니페스트, 목록(index.txt), 현재 코스(current.txt)를 씁니다.
+#      가장 최근에 커밋한 GPX가 현재 코스가 됩니다 (--order git).
+#   3. pages/ 폴더(시험 필드용 t/ 포함)를 배포합니다.
+# 폰에서 새 코스를 올리려면 github.com에서 gpx/ 폴더에 GPX 파일을 올리면 됩니다 (명세 6.8).
 # 저장소 Settings → Pages → Source를 "GitHub Actions"로 켜야 배포됩니다.
 # 켜지 않은 상태에서는 확인 단계만 돌고 배포는 건너뜁니다.
 name: Deploy pages
@@ -7,6 +12,9 @@ on:
   push:
     paths:
       - "pages/**"
+      - "gpx/**"
+      - "trailgrade/**"
+      - "trailgrade.toml"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -49,6 +57,16 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # GPX 추가 순서(마지막 커밋 시각)를 알기 위해 전체 기록을 받습니다
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 변환기 시험
+        run: python -m unittest discover -s tests -t .
+      - name: GPX → 코스 서버 파일
+        run: python -m trailgrade build gpx/ --out pages --order git
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -14,7 +14,10 @@ KEY="$ROOT/jamtrail_developer_key.der"
 [[ -f $KEY ]] || KEY="$HOME/Library/Application Support/Garmin/ConnectIQ/developer_key.der"
 
 mkdir -p "$ROOT/bin"
-monkeyc -f "$ROOT/testfield/monkey.jungle" -d "$DEVICE" -y "$KEY" -o "$ROOT/bin/JAMTEST-$DEVICE.prg" -w
+# 서버 주소를 로컬로 바꾼 복사본으로 빌드합니다 (원본은 실기기용 GitHub Pages 주소).
+rm -rf "$ROOT/bin/testfield-sim" && cp -R "$ROOT/testfield" "$ROOT/bin/testfield-sim"
+sed -i '' "s#const BASE_URL = .*#const BASE_URL = \"http://127.0.0.1:$PORT/\";#" "$ROOT/bin/testfield-sim/source/JamConfig.mc"
+monkeyc -f "$ROOT/bin/testfield-sim/monkey.jungle" -d "$DEVICE" -y "$KEY" -o "$ROOT/bin/JAMTEST-$DEVICE.prg" -w
 
 # 로컬 서버: 이미 떠 있으면 그대로 씁니다.
 if ! curl -fs "http://127.0.0.1:$PORT/t/ping.txt" >/dev/null; then

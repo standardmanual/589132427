@@ -1,5 +1,6 @@
 #!/bin/zsh
-# 본 데이터 필드(app/)를 빌드해 Connect IQ 시뮬레이터에서 실행합니다.
+# 본 데이터 필드(app/)를 시뮬레이터 빌드(sim.jungle: 로컬 코스 서버, 시험 로그)로 만들어 실행합니다.
+# 실기기·스토어용 .iq는 scripts/build-app.sh로 만듭니다.
 # 사용법: scripts/sim-app.sh [--reset] [--replay] [기기 id]   (기본 fenix847mm, 43mm는 fenix843mm)
 #   --reset   실행 전에 시뮬레이터에 저장된 이 앱의 Storage를 지웁니다 (코스 없는 첫 실행 시험)
 #   --replay  시험 재생 빌드: 가상 러너로 위치 결정을 시험합니다. 약 10분 뒤 RP_DONE이 찍히면
@@ -10,7 +11,7 @@
 set -e
 ROOT=${0:A:h:h}
 RESET=0
-JUNGLE=monkey.jungle
+JUNGLE=sim.jungle
 while [[ $1 == --* ]]; do
   case $1 in
     --reset) RESET=1 ;;

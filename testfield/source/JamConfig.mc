@@ -2,10 +2,10 @@ import Toybox.Lang;
 
 // 빌드 전에 이 값만 바꾸면 됩니다.
 module JamConfig {
-    // 시험 파일 서버 주소. 끝에 / 를 붙입니다.
-    // 로컬 시뮬레이터용: scripts/sim-testfield.sh가 pages/ 폴더를 이 주소로 띄웁니다.
-    // 시뮬레이터 메뉴 Settings → Use Device HTTPS Requirements를 꺼야 http 응답을 받습니다.
-    const BASE_URL = "http://127.0.0.1:8765/";
+    // 시험 파일을 올린 GitHub Pages 주소. 끝에 / 를 붙입니다.
+    // 이 저장소(standardmanual/589132427)의 pages/ 폴더가 여기에 배포됩니다.
+    // 시뮬레이터에서는 scripts/sim-testfield.sh가 복사본을 로컬 서버 주소로 바꿔 빌드합니다.
+    const BASE_URL = "https://standardmanual.github.io/589132427/";
 
     // 받아 볼 Base64 텍스트 크기(KB). 서버의 t/b<크기>k.txt 파일과 맞아야 합니다.
     const SIZES_KB = [4, 8, 16, 24, 32, 48];

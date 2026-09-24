@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 import tomllib
 import unicodedata
@@ -28,13 +29,28 @@ def load_config(path: Path | None) -> dict:
     return cfg
 
 
-def collect_gpx(inputs: list[str]) -> list[Path]:
-    """폴더는 안의 .gpx를 수정 시각 순으로 넣습니다. 마지막 파일이 현재 코스가 됩니다."""
+def git_time(f: Path) -> int:
+    """파일을 마지막으로 커밋한 시각. 커밋되지 않았으면 0"""
+    try:
+        out = subprocess.run(["git", "log", "-1", "--format=%ct", "--", str(f)],
+                             capture_output=True, text=True, check=True).stdout.strip()
+        return int(out) if out else 0
+    except (OSError, subprocess.CalledProcessError, ValueError):
+        return 0
+
+
+def collect_gpx(inputs: list[str], order: str = "mtime") -> list[Path]:
+    """폴더는 안의 .gpx를 추가된 순서로 넣습니다. 마지막 파일이 현재 코스가 됩니다.
+
+    order="mtime"은 파일 수정 시각, "git"은 마지막 커밋 시각 순입니다. GitHub Actions에서는 체크아웃한
+    파일의 수정 시각이 모두 같아 git 순서를 씁니다 (.github/workflows/pages.yml).
+    """
+    key = (lambda f: (git_time(f), f.name)) if order == "git" else (lambda f: (f.stat().st_mtime, f.name))
     files = []
     for s in inputs:
         p = Path(s)
         if p.is_dir():
-            files += sorted(p.glob("*.gpx"), key=lambda f: (f.stat().st_mtime, f.name))
+            files += sorted(p.glob("*.gpx"), key=key)
         elif p.exists():
             files.append(p)
         else:
@@ -112,6 +128,8 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--no-current", action="store_true", help="current.txt를 바꾸지 않음")
     b.add_argument("--no-preview", action="store_true", help="preview.png를 만들지 않음")
     b.add_argument("--dry-run", action="store_true", help="파일을 쓰지 않고 결과만 출력")
+    b.add_argument("--order", choices=["mtime", "git"], default="mtime",
+                   help="폴더 안 GPX 순서: 수정 시각(mtime) 또는 마지막 커밋 시각(git). 마지막이 현재 코스")
     args = ap.parse_args(argv)
 
     cfg = load_config(args.config)
@@ -120,7 +138,7 @@ def main(argv: list[str] | None = None) -> int:
         if v is not None:
             cfg[key] = v
     site = Path(cfg["out"])
-    files = collect_gpx(args.inputs)
+    files = collect_gpx(args.inputs, args.order)
     failed = 0
     for i, f in enumerate(files):
         try:

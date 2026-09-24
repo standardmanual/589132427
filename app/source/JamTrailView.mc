@@ -299,7 +299,12 @@ class JamTrailView extends WatchUi.DataField {
             status = "새 코스 받는 중 " + _sync.progressText();
         } else {
             status = _sync.message(now);
-            tail = _sync.messageTail();
+            if (status != null) {
+                tail = _sync.messageTail();
+            }
+        }
+        if (status == null && Settings.get(Settings.DIAG) == 1) {
+            status = diagLine();
         }
         var t0 = System.getTimer();
         screen.draw(dc, status, tail);
@@ -309,6 +314,27 @@ class JamTrailView extends WatchUi.DataField {
             System.println("draw max " + ms + " ms (w=" + screen.widthM + ")");
         }
         trackMemory("draw");
+    }
+
+    // 진단 표시 (설정 "진단 표시" 켬): 마지막 줄에 위치 출처와 코스 위치, 가민 남은 거리와 목적지 이름,
+    // 가민 축을 쓰지 않은 이유, 남은 메모리. 실기기에서는 로그를 볼 수 없어 사진으로 확인합니다.
+    function diagLine() as String {
+        var t = _tracker;
+        var free = (System.getSystemStats().freeMemory / 1024) + "K";
+        if (t == null) {
+            return "위치 없음 · " + free;
+        }
+        var dtd = t.lastDtd;
+        var line = t.sourceName() + " " + (t.d / 1000.0).format("%.2f") + " · dtd " + (dtd == null ? "-" : dtd.format("%.0f"));
+        var gs = t.garminState;
+        if (!gs.equals("ok") && !gs.equals("none") && !gs.equals("-")) {
+            line += " (" + gs + ")";
+        }
+        var dest = t.lastDest;
+        if (dest != null) {
+            line += " · " + dest;
+        }
+        return line + " · " + free;
     }
 
     // 코스가 없을 때 가운데 문구 (명세 4.3)

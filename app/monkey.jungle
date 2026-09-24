@@ -1,2 +1,3 @@
+# 실기기·스토어 빌드: GitHub Pages 서버, 시험 로그 끔
 project.manifest = manifest.xml
-base.excludeAnnotations = replay_on;tour_on
+base.excludeAnnotations = replay_on;tour_on;local_server;log_on

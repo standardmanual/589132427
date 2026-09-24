@@ -10,6 +10,7 @@ class PosInput {
     var latQ as Float? = null; // GPS 위도·경도, 1e-5° 단위
     var lonQ as Float? = null;
     var elapsedDistance as Float? = null;
+    var nameOfDestination as String? = null; // 진단 표시용 (명세 10.1 9번: 코스 이름이 오는지)
 
     function initialize() {
     }
@@ -19,6 +20,7 @@ class PosInput {
         distanceToNextPoint = toF(info.distanceToNextPoint);
         offCourseDistance = toF(info.offCourseDistance);
         elapsedDistance = toF(info.elapsedDistance);
+        nameOfDestination = info.nameOfDestination;
         latQ = null;
         lonQ = null;
         var loc = info.currentLocation;
@@ -63,6 +65,8 @@ class PositionTracker {
     var _garminMax as Float = 0.0;
     var garminState as String = "-"; // 시험 로그용: 가민 축을 쓰지 않은 이유
     var offThreshold as Float = TrailConfig.OFF_COURSE_M; // 코스 이탈 임계값 (설정 s_off)
+    var lastDtd as Float? = null;       // 진단 표시용: 마지막 distanceToDestination
+    var lastDest as String? = null;     // 진단 표시용: 마지막 nameOfDestination
 
     function initialize(g as CourseGeo) {
         geo = g;
@@ -87,6 +91,8 @@ class PositionTracker {
 
     function useGarmin(p as PosInput, now as Number) as Boolean {
         var dtd = p.distanceToDestination;
+        lastDtd = dtd;
+        lastDest = p.nameOfDestination;
         if (dtd == null || dtd <= 0.0) {
             garminState = "none";
             return false;

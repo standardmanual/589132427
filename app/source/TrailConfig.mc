@@ -1,10 +1,12 @@
 import Toybox.Lang;
 
 module TrailConfig {
-    // 코스 서버 주소. 끝에 / 를 붙입니다.
-    // 로컬 시뮬레이터용: scripts/sim-app.sh가 pages/ 폴더를 이 주소로 띄웁니다.
-    // 시뮬레이터 메뉴 Settings → Use Device HTTPS Requirements를 꺼야 http 응답을 받습니다.
-    const BASE_URL = "http://127.0.0.1:8765/";
+    // 코스 서버 주소. 끝에 / 를 붙입니다. 빌드 설정(jungle)으로 고릅니다.
+    //   실기기·스토어 (monkey.jungle): 이 저장소의 GitHub Pages. pages.yml이 gpx/의 GPX를 변환해 배포합니다.
+    //   시뮬레이터 (sim·replay·tour.jungle): scripts/course_server.py가 pages/ 폴더를 띄우는 로컬 주소.
+    //     시뮬레이터 메뉴 Settings → Use Device HTTPS Requirements를 꺼야 http 응답을 받습니다.
+    (:pages_server) const BASE_URL = "https://standardmanual.github.io/589132427/";
+    (:local_server) const BASE_URL = "http://127.0.0.1:8765/";
 
     // 요청 하나당 최대 시도 횟수와 재시도 간격 (명세 7.2)
     const MAX_TRIES = 3;
@@ -30,8 +32,9 @@ module TrailConfig {
     // 나란해 거리만으로 구분이 안 될 때 직전 위치에 가까운 쪽을 고르게 합니다.
     const ALONG_WEIGHT = 0.05;
 
-    // 시험용 로그: 그래프 열 값(scripts/check_profile.py)과 메모리 최고치
-    const DEBUG_LOG = true;
+    // 시험용 로그 (메모리 최고치, 계산 시간, 설정 반영). 실기기 빌드에서는 끕니다.
+    (:log_off) const DEBUG_LOG = false;
+    (:log_on) const DEBUG_LOG = true;
     // 시험 재생: 실제 활동 값 대신 가상 러너로 위치 결정을 시험합니다 (scripts/check_position.py).
     // 빌드 설정으로 고릅니다: 기본(monkey.jungle)은 끄고, scripts/sim-app.sh --replay(replay.jungle)는 켭니다.
     (:replay_off) const DEBUG_REPLAY = false;
