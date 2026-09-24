@@ -369,8 +369,10 @@ tbody tr.cur td:first-child::before{content:"";display:inline-block;width:6px;he
 'use strict';
 
 /* ---------- constants (명세 3장: 상수로 분리) ---------- */
-var UP=['#aca490','#f9ed52','#ffac15','#fc6518','#e01f47','#af0076'];
-var DN=['#95a8b1','#81f9ef','#47cbfa','#5097ff','#795fe2','#9a1dac'];
+var UP=['#00df3f','#fefc00','#ffb63f','#fe6a00','#e00041','#dd00de'];   // 형광 계열, 인접 색 구분 검증 통과
+var DN=['#00e074','#48fff8','#38c5ff','#1888ff','#8600ee','#ea41ff'];
+var UP_ID=UP[3], DN_ID=DN[3];   // 오르막·내리막 대표색 (모드 아이콘, 구간 시작·끝 점, 구간 띠)
+var MARKER='#ff1f1f';           // 현재 위치 삼각형
 var EDGES=[5,10,15,20,30];
 var BIN_LABELS=['0–5','5–10','10–15','15–20','20–30','30+'];
 var WARN='#fab219';
@@ -669,16 +671,16 @@ function drawProfile(ctx,box,o){
   for(i=Math.floor(r0/I)+1;i*I<r1;i++){ds.push(i*I);es.push(E[i]);}
   ds.push(r1);es.push(eleAt(r1));
   var mn=Infinity,mx=-Infinity;es.forEach(function(e){if(e<mn)mn=e;if(e>mx)mx=e;});
-  var spanE=Math.max(2,mx-mn),kx,ky,vb=mn,xo;
+  var spanE=Math.max(2,mx-mn),kx,ky,vb=mn,xo,ph=box.h-(o.head||0);   // head: 현재 위치 삼각형이 들어갈 위쪽 여유
   if(win){
     kx=box.w/Math.max(1,w1-w0);
     if(o.fixed){ky=kx*o.exag;vb=o.vBase;}   // 축척 고정: 넘치는 고도는 줄이지 않고 잘라냄
-    else ky=box.h/spanE;                    // 기존 방식: 세로만 따로 맞춤
+    else ky=ph/spanE;                       // 기존 방식: 세로만 따로 맞춤
     xo=box.x+(r0-w0)*kx;
   }else{
     var spanD=Math.max(1,r1-r0);
-    if(o.fixed){var k=Math.min(box.w/spanD,box.h/(spanE*o.exag));kx=k;ky=k*o.exag;}   // 가로·세로 같은 비율로 함께 축소
-    else{kx=box.w/spanD;ky=box.h/spanE;}                                            // 기존 방식: 세로만 따로 맞춤
+    if(o.fixed){var k=Math.min(box.w/spanD,ph/(spanE*o.exag));kx=k;ky=k*o.exag;}   // 가로·세로 같은 비율로 함께 축소
+    else{kx=box.w/spanD;ky=ph/spanE;}                                            // 기존 방식: 세로만 따로 맞춤
     xo=box.x+(box.w-spanD*kx)/2;
   }
   var base=box.y+box.h,u=o.u,fs=o.fs;
@@ -712,14 +714,15 @@ function drawProfile(ctx,box,o){
   if(win&&o.fixed&&o.markerD!=null){ // 화면 밖으로 잘린 앞쪽 고도를 가장자리에 표시
     var aMx=-Infinity,aMn=Infinity;
     for(var a=0;a<ds.length;a++){if(ds[a]>=o.markerD){if(es[a]>aMx)aMx=es[a];if(es[a]<aMn)aMn=es[a];}}
-    var above=aMx-(vb+box.h/ky),below=vb-aMn;
+    var above=aMx-(vb+ph/ky),below=vb-aMn;
     if(above>=1)edgeBadge(ctx,true,'+'+Math.round(above)+' m',box.x+box.w-2*u,box.y+fs.label*0.95,fs.label,u);
     if(below>=1)edgeBadge(ctx,false,'−'+Math.round(below)+' m',box.x+box.w-2*u,base-5*u,fs.label,u);
   }
   var endY=o.endD!=null?Y(eleAt(o.endD)):0;
   if(o.endD!=null&&o.endD>=r0&&o.endD<=r1&&endY>=box.y-1&&endY<=base+1){
     var ex2=X(o.endD),ey2=endY;
-    ctx.beginPath();ctx.arc(ex2,ey2,4.5*u,0,Math.PI*2);ctx.fillStyle='#000';ctx.fill();ctx.lineWidth=1.6*u;ctx.strokeStyle='#e8e8e8';ctx.stroke();
+    ctx.beginPath();ctx.arc(ex2,ey2,6.8*u,0,Math.PI*2);ctx.fillStyle='#000';ctx.fill();
+    ctx.beginPath();ctx.arc(ex2,ey2,5*u,0,Math.PI*2);ctx.fillStyle=o.endColor||'#e8e8e8';ctx.fill();
     ctx.font='500 '+fs.label+'px '+FONT_KR;var tw=ctx.measureText(o.endLabel).width,lx,ly=ey2-10*u,al='center';
     if(ly-fs.label<box.y+2*u){al='right';lx=ex2-9*u;ly=ey2+fs.label*1.25;if(lx-tw<box.x){al='left';lx=ex2+9*u;}}
     else lx=clamp(ex2,box.x+tw/2,box.x+box.w-tw/2);
@@ -728,11 +731,8 @@ function drawProfile(ctx,box,o){
     text(ctx,o.endLabel,lx,ly,{size:fs.label,color:'#d0d0d0',align:al});
   }
   if(o.markerD!=null&&o.markerD>=r0-1&&o.markerD<=r1+1){
-    var md=clamp(o.markerD,r0,r1),px=X(md),py=Y(eleAt(md));
-    ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1.2*u;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px,base);ctx.stroke();
-    ctx.beginPath();ctx.arc(px,py,7.5*u,0,Math.PI*2);ctx.fillStyle='#000';ctx.fill();
-    ctx.beginPath();ctx.arc(px,py,5.2*u,0,Math.PI*2);
-    if(o.off){ctx.strokeStyle=WARN;ctx.lineWidth=2*u;ctx.stroke();}else{ctx.fillStyle='#fff';ctx.fill();}
+    var md=clamp(o.markerD,r0,r1);
+    posTriangle(ctx,X(md),Y(eleAt(md)),9*u,12*u,u,o.off);
   }
   if(o.scaleBar){
     var tgt=box.w*0.22,cands=[20,50,100,200,250,500,1000,2000,5000,10000],dist=cands[0];
@@ -769,12 +769,19 @@ function windowBase(d,w0,w1,V){
   var climbing=eleAt(Math.min(C.total,w1))>=re;
   return clamp(re-(climbing?0.25:0.75)*V,ah.mn,ah.mx-V);
 }
+// 현재 위치: 꼭짓점이 프로파일에 닿는 아래 방향 붉은 삼각형. 코스 이탈 중에는 주황 테두리만
+function posTriangle(ctx,px,py,hw,h,u,off){
+  ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px-hw,py-h);ctx.lineTo(px+hw,py-h);ctx.closePath();
+  ctx.lineJoin='round';ctx.lineWidth=3*u;ctx.strokeStyle='#000';ctx.stroke();
+  if(off){ctx.lineWidth=2*u;ctx.strokeStyle=WARN;ctx.stroke();}else{ctx.fillStyle=MARKER;ctx.fill();}
+}
 function viewRange(seg,next){
   var c0=seg.startD,c1=seg.endD,endD=seg.endD,endLabel;
-  if(seg.type==='FLAT'){if(next){c1=next.endD;endD=next.startD;endLabel=(next.type==='UP'?'오르막 시작 ':'내리막 시작 ')+Math.round(C.ele[next.s]);}else endLabel='도착';}
+  var endColor=seg.type==='DOWN'?DN_ID:UP_ID;
+  if(seg.type==='FLAT'){if(next){c1=next.endD;endD=next.startD;endColor=next.type==='UP'?UP_ID:DN_ID;endLabel=(next.type==='UP'?'오르막 시작 ':'내리막 시작 ')+Math.round(C.ele[next.s]);}else endLabel='도착';}
   else endLabel=(seg.type==='UP'?'오르막 끝 ':'내리막 끝 ')+Math.round(C.ele[seg.e]);
   var pad=Math.max(60,(c1-c0)*0.07);
-  return {r0:c0-pad,r1:c1+pad,c0:c0,c1:c1,endD:endD,endLabel:endLabel};
+  return {r0:c0-pad,r1:c1+pad,c0:c0,c1:c1,endD:endD,endLabel:endLabel,endColor:seg.type==='FLAT'&&!next?'#e8e8e8':endColor};
 }
 
 /* ---------- watch face ---------- */
@@ -788,13 +795,13 @@ function drawWatch(){
   var I=C.interval,seg=C.segs[dispSeg],d=clamp(M.idx*I,0,C.total),u=S/454;
   var next=seg.type==='FLAT'?nextNonFlat(dispSeg):null,vr=viewRange(seg,next);
   var box={x:0.07*S,y:0.34*S,w:0.86*S,h:0.33*S};
-  var po={r0:vr.r0,r1:vr.r1,c0:vr.c0,c1:vr.c1,endD:vr.endD,endLabel:vr.endLabel,markerD:d,exag:settings.exag,
+  var po={r0:vr.r0,r1:vr.r1,c0:vr.c0,c1:vr.c1,endD:vr.endD,endLabel:vr.endLabel,endColor:vr.endColor,head:0.036*S,markerD:d,exag:settings.exag,
     fixed:settings.scaleMode==='fixed',colorOn:!!settings.colorOn,fan:seg.type==='DOWN'?'right':'left',u:u*1.3,
     fs:{label:0.036*S,fan:0.03*S,scale:0.03*S},scaleBar:null,off:M.off};
   if(settings.width!=='seg'){ // 가로 범위 고정: 현재 위치를 왼쪽 25%에 두고 앞쪽 75%를 보여 줌
     var Dw=settings.width;
     po.win=true;po.w0=d-0.25*Dw;po.w1=d+0.75*Dw;po.c0=Math.max(0,po.w0);po.c1=Math.min(C.total,po.w1);
-    if(po.fixed)po.vBase=windowBase(d,po.w0,po.w1,box.h/((box.w/Dw)*settings.exag));
+    if(po.fixed)po.vBase=windowBase(d,po.w0,po.w1,(box.h-po.head)/((box.w/Dw)*settings.exag));
   }
   drawProfile(ctx,box,po);
   // 그래프 아래에는 가로 범위만 표시
@@ -811,8 +818,8 @@ function drawWatch(){
   ctx.font='600 '+chipFs+'px '+FONT_KR;
   var gw=chipFs*0.8,gap=chipFs*0.35,tw=ctx.measureText(lbl).width,sx=S/2-(gw+gap+tw)/2,gy=chipY-chipFs*0.36;
   ctx.beginPath();
-  if(glyph==='up'){ctx.moveTo(sx,gy+gw*0.45);ctx.lineTo(sx+gw/2,gy-gw*0.45);ctx.lineTo(sx+gw,gy+gw*0.45);ctx.closePath();ctx.fillStyle=UP[3];ctx.fill();}
-  else if(glyph==='down'){ctx.moveTo(sx,gy-gw*0.45);ctx.lineTo(sx+gw/2,gy+gw*0.45);ctx.lineTo(sx+gw,gy-gw*0.45);ctx.closePath();ctx.fillStyle=DN[3];ctx.fill();}
+  if(glyph==='up'){ctx.moveTo(sx,gy+gw*0.45);ctx.lineTo(sx+gw/2,gy-gw*0.45);ctx.lineTo(sx+gw,gy+gw*0.45);ctx.closePath();ctx.fillStyle=UP_ID;ctx.fill();}
+  else if(glyph==='down'){ctx.moveTo(sx,gy-gw*0.45);ctx.lineTo(sx+gw/2,gy+gw*0.45);ctx.lineTo(sx+gw,gy-gw*0.45);ctx.closePath();ctx.fillStyle=DN_ID;ctx.fill();}
   else if(glyph==='flat'){ctx.fillStyle='#8c8c8c';ctx.fillRect(sx,gy-gw*0.12,gw,gw*0.24);}
   else{ctx.arc(sx+gw/2,gy,gw*0.55,0,Math.PI*2);ctx.fillStyle=WARN;ctx.fill();text(ctx,'!',sx+gw/2,gy+chipFs*0.3,{size:chipFs*0.85,color:'#000',weight:700,font:FONT_NUM});}
   text(ctx,lbl,sx+gw+gap,chipY,{size:chipFs,color:'#f0f0f0',weight:600,align:'left'});
@@ -877,7 +884,7 @@ function drawCompare(){
     var pad=Math.max(40,s.len*0.06);
     drawProfile(ctx,{x:14,y:14,w:W-28,h:H-44},{r0:s.startD-pad,r1:s.endD+pad,c0:s.startD,c1:s.endD,exag:settings.exag,fixed:c[2],
       colorOn:!!settings.colorOn,fan:'left',u:1,fs:{label:12,fan:11,scale:11.5},scaleBar:{y:H-11,align:'left'},
-      endD:s.endD,endLabel:'오르막 끝 '+Math.round(C.ele[s.e])});
+      endD:s.endD,endLabel:'오르막 끝 '+Math.round(C.ele[s.e]),endColor:UP_ID});
   });
 }
 
@@ -910,7 +917,7 @@ function drawOverviewBase(){
   ctx.strokeStyle='#ededed';ctx.lineWidth=1.3;ctx.lineJoin='round';ctx.stroke();
   C.segs.forEach(function(s,i){
     var x1=X(s.startD),x2=X(s.endD);
-    ctx.fillStyle=s.type==='UP'?UP[3]:s.type==='DOWN'?DN[3]:'#3d3d3d';
+    ctx.fillStyle=s.type==='UP'?UP_ID:s.type==='DOWN'?DN_ID:'#3d3d3d';
     ctx.fillRect(x1+(i?1:0),7,Math.max(1,x2-x1-(i?1:0)),7);
     if(i){ctx.fillStyle='#262626';ctx.fillRect(Math.round(x1),16,1,pad.t+ph-16);}
   });
@@ -923,9 +930,7 @@ function drawOverview(){
   var s=C.segs[dispSeg];ctx.fillStyle='rgba(255,255,255,.07)';ctx.fillRect(g.X(s.startD),16,g.X(s.endD)-g.X(s.startD),g.pad.t+g.ph-16);
   var tx=g.X(sim.d);ctx.fillStyle='#707070';ctx.fillRect(Math.round(tx),16,1,g.pad.t+g.ph-16);
   var md=clamp(M.idx*C.interval,0,C.total),mx=g.X(md),my=g.Y(eleAt(md));
-  ctx.fillStyle='#fff';ctx.fillRect(mx-0.75,my,1.5,g.pad.t+g.ph-my);
-  ctx.beginPath();ctx.arc(mx,my,6,0,Math.PI*2);ctx.fillStyle='#000';ctx.fill();ctx.beginPath();ctx.arc(mx,my,4,0,Math.PI*2);
-  if(M.off){ctx.strokeStyle=WARN;ctx.lineWidth=1.8;ctx.stroke();}else{ctx.fillStyle='#fff';ctx.fill();}
+  posTriangle(ctx,mx,my,6,9,1,M.off);
   if(hoverD!=null){var hx=g.X(hoverD);ctx.fillStyle='rgba(255,255,255,.4)';ctx.fillRect(Math.round(hx),16,1,g.pad.t+g.ph-16);ctx.beginPath();ctx.arc(hx,g.Y(eleAt(hoverD)),3.5,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();}
 }
 
@@ -990,7 +995,7 @@ function renderTable(){
   var tb=els.tbody;tb.textContent='';
   C.segs.forEach(function(s,i){
     var tr=document.createElement('tr');tr.tabIndex=0;tr.dataset.i=i;
-    var sw=s.type==='UP'?UP[3]:s.type==='DOWN'?DN[3]:'#8c8c8c';
+    var sw=s.type==='UP'?UP_ID:s.type==='DOWN'?DN_ID:'#8c8c8c';
     var cells=[String(i+1),null,km(s.startD)+' km',km(s.len)+' km',(s.dEle>=0?'+':'−')+fmtInt(Math.abs(s.dEle))+' m',(s.avg>=0?'+':'−')+Math.abs(s.avg).toFixed(1)+'%',s.max.toFixed(1)+'%'];
     cells.forEach(function(c,ci){
       var td=document.createElement('td');
