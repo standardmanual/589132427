@@ -778,8 +778,8 @@ function posTriangle(ctx,px,py,hw,h,u,off){
 function viewRange(seg,next){
   var c0=seg.startD,c1=seg.endD,endD=seg.endD,endLabel;
   var endColor=seg.type==='DOWN'?DN_ID:UP_ID;
-  if(seg.type==='FLAT'){if(next){c1=next.endD;endD=next.startD;endColor=next.type==='UP'?UP_ID:DN_ID;endLabel=(next.type==='UP'?'오르막 시작 ':'내리막 시작 ')+Math.round(C.ele[next.s]);}else endLabel='도착';}
-  else endLabel=(seg.type==='UP'?'오르막 끝 ':'내리막 끝 ')+Math.round(C.ele[seg.e]);
+  if(seg.type==='FLAT'){if(next){c1=next.endD;endD=next.startD;endColor=next.type==='UP'?UP_ID:DN_ID;endLabel=next.type==='UP'?'오르막 시작':'내리막 시작';}else endLabel='도착';}
+  else endLabel=seg.type==='UP'?'오르막 끝':'내리막 끝';
   var pad=Math.max(60,(c1-c0)*0.07);
   return {r0:c0-pad,r1:c1+pad,c0:c0,c1:c1,endD:endD,endLabel:endLabel,endColor:seg.type==='FLAT'&&!next?'#e8e8e8':endColor};
 }
@@ -794,7 +794,7 @@ function drawWatch(){
   ctx.save();ctx.beginPath();ctx.arc(S/2,S/2,S/2,0,Math.PI*2);ctx.clip();
   var I=C.interval,seg=C.segs[dispSeg],d=clamp(M.idx*I,0,C.total),u=S/454;
   var next=seg.type==='FLAT'?nextNonFlat(dispSeg):null,vr=viewRange(seg,next);
-  var box={x:0.07*S,y:0.34*S,w:0.86*S,h:0.33*S};
+  var box={x:0.07*S,y:0.30*S,w:0.86*S,h:0.37*S};   // 보조 줄을 없애고 그 자리를 그래프에 줌
   var po={r0:vr.r0,r1:vr.r1,c0:vr.c0,c1:vr.c1,endD:vr.endD,endLabel:vr.endLabel,endColor:vr.endColor,head:0.036*S,markerD:d,exag:settings.exag,
     fixed:settings.scaleMode==='fixed',colorOn:!!settings.colorOn,fan:seg.type==='DOWN'?'right':'left',u:u*1.3,
     fs:{label:0.036*S,fan:0.03*S,scale:0.03*S},scaleBar:null,off:M.off};
@@ -826,19 +826,28 @@ function drawWatch(){
 
   // big grade
   var g=gradeAt(d,settings.gradeWin),gr=Math.round(g),num=(gr>0?'+':gr<0?'−':'')+Math.abs(gr);
-  var bigFs=0.155*S,pctFs=0.07*S,by=0.262*S;
-  ctx.font='600 '+bigFs+'px '+FONT_NUM;var nw=ctx.measureText(num).width;
-  ctx.font='600 '+pctFs+'px '+FONT_NUM;var pw=ctx.measureText('%').width;
-  var x0=S/2-(nw+0.008*S+pw)/2;
+  var bigFs=0.155*S,pctFs=0.07*S,by=0.262*S,gapN=0.008*S;
+  // 경사 숫자 양옆: 왼쪽 구간 평균, 오른쪽 앞쪽 최대 (평지 모드는 비움). 숫자는 두 열 사이에 들어가도록 줄임
+  var sides=seg.type!=='FLAT',lo=0,hi=S,sideL=0.035*S,sideV=0.058*S,cxL=0.215*S,cxR=0.785*S,ly1=0.198*S,ly2=0.258*S;
+  var sL1='평균',sL2=Math.abs(seg.avg).toFixed(0)+'%',sR1='앞쪽 최대',sR2=maxAhead(d,seg).toFixed(0)+'%';
+  function wOf(t,size,font,weight){ctx.font=(weight||500)+' '+size+'px '+(font||FONT_KR);return ctx.measureText(t).width;}
+  if(sides){
+    lo=cxL+Math.max(wOf(sL1,sideL),wOf(sL2,sideV,FONT_NUM,600))/2+0.02*S;
+    hi=cxR-Math.max(wOf(sR1,sideL),wOf(sR2,sideV,FONT_NUM,600))/2-0.02*S;
+  }
+  var nw=wOf(num,bigFs,FONT_NUM,600),pw=wOf('%',pctFs,FONT_NUM,600),tot=nw+gapN+pw;
+  if(sides&&tot>hi-lo){var f=(hi-lo)/tot;bigFs*=f;pctFs*=f;nw*=f;pw*=f;gapN*=f;tot=hi-lo;}
+  var x0=(sides?(lo+hi)/2:S/2)-tot/2;
   text(ctx,num,x0,by,{size:bigFs,font:FONT_NUM,weight:600,align:'left',color:'#ffffff'});
-  text(ctx,'%',x0+nw+0.008*S,by,{size:pctFs,font:FONT_NUM,weight:600,align:'left',color:'#9a9a9a'});
+  text(ctx,'%',x0+nw+gapN,by,{size:pctFs,font:FONT_NUM,weight:600,align:'left',color:'#9a9a9a'});
   ctx.fillStyle=settings.colorOn?gradeColor(g):'#8c8c8c';
   if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x0,by+0.012*S,nw,0.011*S,0.005*S);ctx.fill();}else ctx.fillRect(x0,by+0.012*S,nw,0.011*S);
-
-  var subFs=0.042*S,sub;
-  if(seg.type==='FLAT')sub='평지 '+km(Math.max(0,seg.endD-d))+' km 남음';
-  else sub='평균 '+Math.abs(seg.avg).toFixed(0)+'% · 앞쪽 최대 '+maxAhead(d,seg).toFixed(0)+'%';
-  text(ctx,sub,S/2,0.318*S,{size:subFs,color:'#a3a3a3'});
+  if(sides){
+    text(ctx,sL1,cxL,ly1,{size:sideL,color:'#9a9a9a'});
+    text(ctx,sL2,cxL,ly2,{size:sideV,font:FONT_NUM,weight:600,color:'#f2f2f2'});
+    text(ctx,sR1,cxR,ly1,{size:sideL,color:'#9a9a9a'});
+    text(ctx,sR2,cxR,ly2,{size:sideV,font:FONT_NUM,weight:600,color:'#f2f2f2'});
+  }
 
   // bottom metrics
   var colL=0.33*S,colR=0.67*S,vy=0.785*S,ly=0.828*S,vFs=0.085*S,uFs=0.042*S,lFs=0.04*S,last='';
@@ -884,7 +893,7 @@ function drawCompare(){
     var pad=Math.max(40,s.len*0.06);
     drawProfile(ctx,{x:14,y:14,w:W-28,h:H-44},{r0:s.startD-pad,r1:s.endD+pad,c0:s.startD,c1:s.endD,exag:settings.exag,fixed:c[2],
       colorOn:!!settings.colorOn,fan:'left',u:1,fs:{label:12,fan:11,scale:11.5},scaleBar:{y:H-11,align:'left'},
-      endD:s.endD,endLabel:'오르막 끝 '+Math.round(C.ele[s.e]),endColor:UP_ID});
+      endD:s.endD,endLabel:'오르막 끝',endColor:UP_ID});
   });
 }
 
