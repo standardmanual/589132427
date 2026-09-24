@@ -28,18 +28,30 @@ class WatchScreen {
     static const GRAY_FILL = 0x6a6a6a;
     static const WARN = 0xfab219;
     static const MARKER = 0xff1f1f;
-    // 보조 글자(라벨·단위·마지막 줄·가로 범위)의 회색과 크기. 처음(밝기 55–60%, 화면의 3–4%)은 실기기에서 잘 안 보여
-    // 밝기 약 75%로 올리고 글자를 키웠습니다. 크기는 화면 지름 S에 대한 비율입니다.
-    static const GRAY_LABEL = 0xc4c4c4;   // 라벨, 단위, 가로 범위, 마지막 줄
-    static const GRAY_FAN = 0xb0b0b0;     // 경사 기준선 숫자
-    static const GRAY_FAN_LINE = 0x6a6a6a;
-    static const FS_SIDE_LABEL = 0.045;   // 평균, 앞쪽 최대 (처음 0.035)
-    static const FS_SPAN = 0.044;         // 그래프 아래 가로 범위 (처음 0.034)
-    static const FS_FAN = 0.04;           // 경사 기준선 숫자 (처음 0.03)
-    static const FS_END_LABEL = 0.042;    // 구간 끝 점 레이블, 넘친 고도 (처음 0.036)
-    static const FS_UNIT = 0.05;          // 하단 값 옆 단위 (처음 0.042)
-    static const FS_LABEL = 0.05;         // 하단 값 아래 레이블 (처음 0.04)
-    static const FS_LAST = 0.046;         // 마지막 줄 (처음 0.038)
+    // 글자 크기 (화면 지름 S에 대한 비율). 가장 작은 글자는 시계 기본 메뉴 글자와 같은 크기입니다:
+    // 시뮬레이터에서 같은 한글 문장의 폭을 재 보니 기본 메뉴 글꼴은 벡터 글꼴 36 px(454 px 화면, 0.08S)과 같았습니다.
+    // 처음 라벨은 20 px, 실기기 사진에서 "여전히 너무 작다"고 해서 모든 글자를 이 크기 이상으로 맞췄습니다.
+    static const FS_MIN = 0.08;        // 가장 작은 글자: 라벨, 단위, 가로 범위, 상태 문구
+    static const FS_CHIP = 0.085;      // 모드 표시
+    static const FS_SIDE_VALUE = 0.10; // 평균·최대 값
+    static const FS_BIG = 0.16;        // 현재 경사 큰 숫자
+    static const FS_VALUE = 0.10;      // 하단 값
+    static const GRAY_LABEL = 0xc4c4c4;
+
+    // 세로 배치 (글자 기준선의 화면 지름 대비 위치, 원 안에 들어가는지 확인한 값)
+    static const Y_CHIP = 0.135;
+    static const Y_SIDE_LABEL = 0.215;
+    static const Y_SIDE_VALUE = 0.31;
+    static const Y_BIG = 0.30;
+    static const GRAPH_TOP = 0.335;
+    static const GRAPH_H = 0.29;
+    static const Y_SPAN = 0.705;
+    static const Y_VALUE = 0.805;
+    static const Y_LABEL = 0.895;
+    static const X_SIDE_L = 0.23;
+    static const X_SIDE_R = 0.77;
+    static const X_COL_L = 0.335;
+    static const X_COL_R = 0.665;
     static const NONE = -9999;
     static const COL_NONE = 255;
 
@@ -91,8 +103,6 @@ class WatchScreen {
     var _mm as Array<Float> = [0.0, 0.0];
     var _endD as Float = 0.0;
     var _endColor as Number = 0;
-    var _endL1 as String = "";
-    var _endL2 as String? = null;
     var _endX as Number = NONE;
     var _endY as Number = 0;
     var _mX as Number = NONE;
@@ -106,16 +116,17 @@ class WatchScreen {
     var _vR as String = "";
     var _uR as String = "";
     var _lR as String = "";
-    var _last as String? = null;
+    var diagA as String? = null;   // 진단 표시 두 줄 (JamTrailView가 채움)
+    var diagB as String? = null;
 
     function initialize(size as Number) {
         fonts = new Fonts();
         s = size;
         u = size / 454.0 * 1.3;
         bx = (0.07 * s + 0.5).toNumber();
-        by = (0.30 * s + 0.5).toNumber();
+        by = (GRAPH_TOP * s + 0.5).toNumber();
         bw = (0.86 * s + 0.5).toNumber();
-        bh = (0.37 * s + 0.5).toNumber();
+        bh = (GRAPH_H * s + 0.5).toNumber();
         head = (0.036 * s + 0.5).toNumber();
         base = by + bh;
         _colY = new [bw]b;
@@ -135,7 +146,7 @@ class WatchScreen {
         if (!known) {
             _chip = "위치 찾는 중";
         } else if (off) {
-            _chip = "코스 이탈 " + fmt0(offDist) + " m";
+            _chip = "이탈 " + fmt0(offDist) + " m";
         } else if (_type == TrailCourse.UP) {
             _chip = "오르막 " + c.segNo[seg] + "/" + c.upCount;
         } else if (_type == TrailCourse.DOWN) {
@@ -203,16 +214,10 @@ class WatchScreen {
                 _endD = c.segStartD(next).toFloat();
                 var nUp = c.segType(next) == TrailCourse.UP;
                 _endColor = nUp ? UP_ID : DN_ID;
-                _endL1 = nUp ? "오르막" : "내리막";
-                _endL2 = "시작";
             } else {
                 _endColor = IN_LINE;
-                _endL1 = "도착";
-                _endL2 = null;
             }
         } else {
-            _endL1 = _type == TrailCourse.UP ? "오르막" : "내리막";
-            _endL2 = "끝";
         }
 
         _fixed = widthM > 0;
@@ -318,13 +323,12 @@ class WatchScreen {
         return (c.u16(TrailCourse.HEADER + 2 * z) - c.u16(TrailCourse.HEADER + 2 * a)) / ((z - a) * 20.0) * 10.0;
     }
 
-    // 아래쪽 수치와 마지막 줄 (명세 4.2)
+    // 아래쪽 두 칸 (명세 4.2). 글자가 커져 라벨은 폭 안에 들어가는 짧은 말로 줄였습니다.
     function prepareBottom(c as TrailCourse, d as Float, seg as Number, next as Number) as Void {
         var remD = c.segEndD(seg) - d;
         if (remD < 0.0) {
             remD = 0.0;
         }
-        _last = null;
         if (_type == TrailCourse.UP || _type == TrailCourse.DOWN) {
             var up = _type == TrailCourse.UP;
             _vL = (up ? "+" : "−") + fmt0(c.remainClimb(d, seg, up));
@@ -333,19 +337,15 @@ class WatchScreen {
             _vR = km(remD);
             _uR = "km";
             _lR = "남은 거리";
-            // 모드 표시가 이미 오르막·내리막을 알려 주고, 화면 아래쪽은 폭이 좁아 큰 글자에 맞춰 앞의 "오르막"을 뺐습니다.
-            _last = "끝 " + fmtInt(c.ele(c.segEnd(seg))) + " m · 구간 " + km(c.segEndD(seg) - c.segStartD(seg)) + " km";
         } else if (next >= 0) {
             var nUp = c.segType(next) == TrailCourse.UP;
             var toNext = c.segStartD(next) - d;
             _vL = km(toNext < 0.0 ? 0.0 : toNext);
             _uL = "km";
-            _lL = nUp ? "오르막까지" : "내리막까지";
-            var nLen = c.segEndD(next) - c.segStartD(next);
+            _lL = nUp ? "오르막" : "내리막";
             _vR = (nUp ? "+" : "−") + fmt0(c.segDEle(next).abs());
             _uR = "m";
-            _lR = (nLen / 1000.0).format("%.1f") + " km · 평균 " + fmt0(c.segAvg(next).abs()) + "%";
-            _last = "현재 고도 " + fmtInt(c.eleAt(d)) + " m";
+            _lR = nUp ? "상승" : "하강";
         } else {
             var toEnd = c.lengthM() - d;
             _vL = km(toEnd < 0.0 ? 0.0 : toEnd);
@@ -359,7 +359,7 @@ class WatchScreen {
 
     // =============================================================== 그리기 (onUpdate)
 
-    // status: 마지막 줄 자리에 대신 띄울 상태 문구(명세 4.3), 없으면 null
+    // status: 가로 범위 자리에 대신 띄울 상태 문구(명세 4.3), 없으면 null
     function draw(dc as Graphics.Dc, status as String?, statusTail as String) as Void {
         if (!ready) {
             return;
@@ -367,62 +367,81 @@ class WatchScreen {
         drawModeChip(dc);
         drawGrade(dc);
         paintColumns(dc);
-        drawFan(dc, _type == TrailCourse.DOWN);
-        drawEdgeBadges(dc);
+        drawEdgeMarks(dc);
         drawEndPoint(dc);
         if (_mX != NONE) {
             drawMarker(dc, _mX, _mY, _off);
         }
-        dc.setColor(GRAY_LABEL, Graphics.COLOR_TRANSPARENT);
-        text(dc, s / 2, (0.708 * s).toNumber(), fonts.kr(FS_SPAN * s), _span, Graphics.TEXT_JUSTIFY_CENTER);
-        drawBottom(dc, status == null);
         if (status != null) {
-            statusLine(dc, status, statusTail, 0xd0d0d0);
+            statusLine(dc, status, statusTail, 0xe0e0e0);
+        } else {
+            dc.setColor(GRAY_LABEL, Graphics.COLOR_TRANSPARENT);
+            text(dc, s / 2, (Y_SPAN * s).toNumber(), fonts.kr(FS_MIN * s), _span, Graphics.TEXT_JUSTIFY_CENTER);
+        }
+        drawBottom(dc);
+        drawDiag(dc);
+    }
+
+    // 진단 표시(설정): 그래프 위쪽에 검은 배경으로 두 줄
+    function drawDiag(dc as Graphics.Dc) as Void {
+        var a = diagA;
+        var b = diagB;
+        if (a == null) {
+            return;
+        }
+        var f = fonts.kr(FS_MIN * s);
+        var lh = Graphics.getFontHeight(f);
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(bx, by, bw, b == null ? lh : 2 * lh);
+        dc.setColor(0xffd060, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(bx + 4, by, f, fit(dc, f, a, "", bw - 8), Graphics.TEXT_JUSTIFY_LEFT);
+        if (b != null) {
+            dc.drawText(bx + 4, by + lh, f, fit(dc, f, b, "", bw - 8), Graphics.TEXT_JUSTIFY_LEFT);
         }
     }
 
-    // 마지막 줄 자리의 상태 문구 (명세 4.3). 원 안에 들어가도록 앞부분만 줄이고 tail은 남깁니다.
+    // 상태 문구 (명세 4.3): 가로 범위 자리에 띄웁니다. 원 안에 들어가도록 앞부분만 줄이고 tail은 남깁니다.
     function statusLine(dc as Graphics.Dc, msg as String, tail as String, color as Number) as Void {
-        var f = fonts.kr(FS_LAST * s);
+        var f = fonts.kr(FS_MIN * s);
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-        text(dc, s / 2, (0.892 * s).toNumber(), f, fit(dc, f, msg, tail, (0.64 * s).toNumber()), Graphics.TEXT_JUSTIFY_CENTER);
+        text(dc, s / 2, (Y_SPAN * s).toNumber(), f, fit(dc, f, msg, tail, (0.88 * s).toNumber()), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    // 모드 표시 (y 0.128S, 0.046S). 코스 이탈 중에는 주황 원 아이콘과 함께 이탈 거리
+    // 모드 표시. 코스 이탈 중에는 주황 원 아이콘과 함께 이탈 거리
     function drawModeChip(dc as Graphics.Dc) as Void {
-        var px = 0.046 * s;
+        var px = FS_CHIP * s;
         var f = fonts.kr(px);
-        var y = (0.128 * s).toNumber();
+        var y = (Y_CHIP * s).toNumber();
         var tw = dc.getTextWidthInPixels(_chip, f);
-        var gw = _off ? (px * 0.8).toNumber() : 0;
-        var gap = _off ? (px * 0.35).toNumber() : 0;
+        var gw = _off ? (px * 0.7).toNumber() : 0;
+        var gap = _off ? (px * 0.25).toNumber() : 0;
         var x = s / 2 - (gw + gap + tw) / 2;
         if (_off) {
             var gy = (y - px * 0.36).toNumber();
             dc.setColor(WARN, Graphics.COLOR_TRANSPARENT);
             dc.fillCircle(x + gw / 2, gy, (gw * 0.55).toNumber());
             dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-            text(dc, x + gw / 2, gy + (px * 0.3).toNumber(), fonts.num(px * 0.85), "!", Graphics.TEXT_JUSTIFY_CENTER);
+            text(dc, x + gw / 2, gy + (px * 0.3).toNumber(), fonts.num(px * 0.8), "!", Graphics.TEXT_JUSTIFY_CENTER);
         }
         dc.setColor(0xf0f0f0, Graphics.COLOR_TRANSPARENT);
         text(dc, x + gw + gap, y, f, _chip, Graphics.TEXT_JUSTIFY_LEFT);
     }
 
-    // 현재 경사 큰 숫자와 경사 색 막대, 양옆 열(평균, 앞쪽 최대)
+    // 현재 경사 큰 숫자와 경사 색 막대, 양옆 열(평균, 최대). 양옆 열은 큰 숫자와 같은 높이 띠 안에 둡니다.
     function drawGrade(dc as Graphics.Dc) as Void {
-        var bigPx = 0.155 * s;
+        var bigPx = FS_BIG * s;
         var pctPx = 0.07 * s;
         var gapN = 0.008 * s;
-        var yb = (0.262 * s).toNumber();
+        var yb = (Y_BIG * s).toNumber();
         var lo = 0.0;
         var hi = s.toFloat();
-        var fL = fonts.kr(FS_SIDE_LABEL * s);
-        var fV = fonts.num(0.058 * s);
-        var cxL = (0.215 * s).toNumber();
-        var cxR = (0.785 * s).toNumber();
+        var fL = fonts.kr(FS_MIN * s);
+        var fV = fonts.num(FS_SIDE_VALUE * s);
+        var cxL = (X_SIDE_L * s).toNumber();
+        var cxR = (X_SIDE_R * s).toNumber();
         if (_sides) {
             lo = cxL + max2(dc.getTextWidthInPixels("평균", fL), dc.getTextWidthInPixels(_sL2, fV)) / 2.0 + 0.02 * s;
-            hi = cxR - max2(dc.getTextWidthInPixels("앞쪽 최대", fL), dc.getTextWidthInPixels(_sR2, fV)) / 2.0 - 0.02 * s;
+            hi = cxR - max2(dc.getTextWidthInPixels("최대", fL), dc.getTextWidthInPixels(_sR2, fV)) / 2.0 - 0.02 * s;
         }
         var fBig = fonts.num(bigPx);
         var fPct = fonts.num(pctPx);
@@ -446,13 +465,13 @@ class WatchScreen {
         dc.setColor(GRAY_LABEL, Graphics.COLOR_TRANSPARENT);
         text(dc, (x0 + nw + gapN).toNumber(), yb, fPct, "%", Graphics.TEXT_JUSTIFY_LEFT);
         dc.setColor(colorOn ? COLORS[colorIndex(_g)] : 0x8c8c8c, Graphics.COLOR_TRANSPARENT);
-        dc.fillRoundedRectangle(x0, (yb + 0.012 * s).toNumber(), tot.toNumber(), (0.011 * s + 0.5).toNumber(), (0.005 * s).toNumber());
+        dc.fillRoundedRectangle(x0, (yb + 0.014 * s).toNumber(), tot.toNumber(), (0.012 * s + 0.5).toNumber(), (0.005 * s).toNumber());
         if (_sides) {
-            var ly1 = (0.198 * s).toNumber();
-            var ly2 = (0.258 * s).toNumber();
+            var ly1 = (Y_SIDE_LABEL * s).toNumber();
+            var ly2 = (Y_SIDE_VALUE * s).toNumber();
             dc.setColor(GRAY_LABEL, Graphics.COLOR_TRANSPARENT);
             text(dc, cxL, ly1, fL, "평균", Graphics.TEXT_JUSTIFY_CENTER);
-            text(dc, cxR, ly1, fL, "앞쪽 최대", Graphics.TEXT_JUSTIFY_CENTER);
+            text(dc, cxR, ly1, fL, "최대", Graphics.TEXT_JUSTIFY_CENTER);
             dc.setColor(0xf2f2f2, Graphics.COLOR_TRANSPARENT);
             text(dc, cxL, ly2, fV, _sL2, Graphics.TEXT_JUSTIFY_CENTER);
             text(dc, cxR, ly2, fV, _sR2, Graphics.TEXT_JUSTIFY_CENTER);
@@ -499,104 +518,32 @@ class WatchScreen {
         dc.fillRectangle(bx, base + 1, bw, u > 1.0 ? u.toNumber() : 1);
     }
 
-    // 경사 기준선: 현재 세로 배율로 그린 10·20·30%. 오르막·평지는 왼쪽 위, 내리막은 오른쪽 위
-    function drawFan(dc as Graphics.Dc, right as Boolean) as Void {
-        var Lf = bh * 0.42;
-        var dir = right ? -1 : 1;
-        var fx = right ? bx + bw - 2 * u : bx + 2 * u;
-        var fy = by + Lf * 0.9 + 2 * u;
-        var fpx = FS_FAN * s;
-        var f = fonts.num(fpx);
-        var prevY = -1000.0;
-        var gs = [30, 20, 10];
-        for (var k = 0; k < 3; k++) {
-            var th = Math.atan(gs[k] / 100.0 * exag);
-            var ex = fx + dir * Lf * Math.cos(th);
-            var ey = fy - Lf * Math.sin(th);
-            dc.setColor(GRAY_FAN_LINE, Graphics.COLOR_TRANSPARENT);
-            dc.drawLine(fx.toNumber(), fy.toNumber(), ex.toNumber(), ey.toNumber());
-            if ((prevY - ey).abs() >= fpx * 0.95) {
-                dc.setColor(GRAY_FAN, Graphics.COLOR_TRANSPARENT);
-                text(dc, (ex + dir * 4 * u).toNumber(), (ey + fpx * 0.35).toNumber(), f, gs[k] + "%",
-                    right ? Graphics.TEXT_JUSTIFY_RIGHT : Graphics.TEXT_JUSTIFY_LEFT);
-                prevY = ey;
-            }
-        }
-    }
-
-    // 화면 밖으로 잘린 앞쪽 고도를 오른쪽 가장자리에 표시 ("▲ +38 m", "▼ −52 m")
-    function drawEdgeBadges(dc as Graphics.Dc) as Void {
-        var lpx = FS_END_LABEL * s;
+    // 화면 밖으로 잘린 앞쪽 고도: 오른쪽 가장자리의 삼각형 (위로 잘리면 ▲ 위쪽, 아래로 잘리면 ▼ 아래쪽).
+    // 글자(예: "+38 m")는 36 px 이상으로 그리면 그래프를 너무 가려 삼각형만 남겼습니다.
+    function drawEdgeMarks(dc as Graphics.Dc) as Void {
+        var w = (8 * u).toNumber();
+        var h = (10 * u).toNumber();
+        var x = bx + bw - w - 2;
+        dc.setColor(0xf0f0f0, Graphics.COLOR_TRANSPARENT);
         if (_above >= 1.0) {
-            edgeBadge(dc, true, "+" + fmt0(_above) + " m", (bx + bw - 2 * u).toNumber(), (by + lpx * 0.95).toNumber(), lpx);
+            var y = by + 2;
+            dc.fillPolygon([[x, y + h], [x + w, y], [x + 2 * w, y + h]]);
         }
         if (_below >= 1.0) {
-            edgeBadge(dc, false, "−" + fmt0(_below) + " m", (bx + bw - 2 * u).toNumber(), (base - 5 * u).toNumber(), lpx);
+            var y = base - 2;
+            dc.fillPolygon([[x, y - h], [x + w, y], [x + 2 * w, y - h]]);
         }
     }
 
-    function edgeBadge(dc as Graphics.Dc, up as Boolean, label as String, rx as Number, yb as Number, px as Float) as Void {
-        var f = fonts.kr(px);
-        var tw = dc.getTextWidthInPixels(label, f);
-        var tri = px * 0.62;
-        var gap = 4 * u;
-        var w = (tri + gap + tw + 10 * u).toNumber();
-        var h = (px * 1.35).toNumber();
-        var x = rx - w;
-        var y = (yb - px * 0.98).toNumber();
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(x, y, w, h);
-        var tx = x + 5 * u;
-        var ty = y + h / 2.0;
-        var pts = up
-            ? [[tx, ty + tri * 0.45], [tx + tri / 2, ty - tri * 0.45], [tx + tri, ty + tri * 0.45]]
-            : [[tx, ty - tri * 0.45], [tx + tri / 2, ty + tri * 0.45], [tx + tri, ty - tri * 0.45]];
-        dc.setColor(0xf0f0f0, Graphics.COLOR_TRANSPARENT);
-        dc.fillPolygon(pts);
-        text(dc, (tx + tri + gap).toNumber(), yb, f, label, Graphics.TEXT_JUSTIFY_LEFT);
-    }
-
-    // 구간 끝(또는 다음 구간 시작) 점과 두 줄 레이블 (명세 3.5)
+    // 구간 끝(또는 다음 구간 시작, 도착) 점. 글자 레이블은 뺐습니다(모드 표시와 색으로 알 수 있음).
     function drawEndPoint(dc as Graphics.Dc) as Void {
         if (_endX == NONE) {
             return;
         }
-        var ex = _endX;
-        var ey = _endY;
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-        dc.fillCircle(ex, ey, (6.8 * u).toNumber());
+        dc.fillCircle(_endX, _endY, (7.5 * u).toNumber());
         dc.setColor(_endColor, Graphics.COLOR_TRANSPARENT);
-        dc.fillCircle(ex, ey, (5 * u).toNumber());
-
-        var l2 = _endL2;
-        var lpx = FS_END_LABEL * s;
-        var f = fonts.kr(lpx);
-        var lh = lpx * 1.12;
-        var lines = l2 == null ? 1 : 2;
-        var tw = dc.getTextWidthInPixels(_endL1, f);
-        if (l2 != null && dc.getTextWidthInPixels(l2, f) > tw) {
-            tw = dc.getTextWidthInPixels(l2, f);
-        }
-        var ly0 = ey - 10 * u - lh * (lines - 1);
-        var cx;
-        if (ly0 - lpx < by + 2 * u) {
-            // 위쪽에 자리가 없으면 점 아래 왼쪽, 왼쪽도 모자라면 오른쪽
-            ly0 = ey + lpx * 1.25;
-            cx = ex - 9 * u - tw / 2.0;
-            if (cx - tw / 2.0 < bx) {
-                cx = ex + 9 * u + tw / 2.0;
-            }
-        } else {
-            cx = clampF(ex.toFloat(), bx + tw / 2.0, bx + bw - tw / 2.0);
-        }
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle((cx - tw / 2.0 - 3 * u).toNumber(), (ly0 - lpx * 0.95).toNumber(), (tw + 6 * u).toNumber(),
-            (lpx * 0.3 + lh * lines).toNumber());
-        dc.setColor(0xf0f0f0, Graphics.COLOR_TRANSPARENT);
-        text(dc, cx.toNumber(), ly0.toNumber(), f, _endL1, Graphics.TEXT_JUSTIFY_CENTER);
-        if (l2 != null) {
-            text(dc, cx.toNumber(), (ly0 + lh).toNumber(), f, l2, Graphics.TEXT_JUSTIFY_CENTER);
-        }
+        dc.fillCircle(_endX, _endY, (5.5 * u).toNumber());
     }
 
     // 현재 위치: 꼭짓점이 프로파일에 닿는 아래 방향 붉은 삼각형. 코스 이탈 중에는 주황 테두리만
@@ -618,42 +565,28 @@ class WatchScreen {
         }
     }
 
-    // 아래쪽 두 칸과 구분선, 마지막 줄
-    function drawBottom(dc as Graphics.Dc, showLast as Boolean) as Void {
-        value(dc, (0.33 * s).toNumber(), _vL, _uL, _lL);
-        value(dc, (0.67 * s).toNumber(), _vR, _uR, _lR);
-        dc.setColor(0x262626, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(s / 2, (0.735 * s).toNumber(), 1, (0.1 * s).toNumber());
-        var last = _last;
-        if (showLast && last != null) {
-            var f = fonts.kr(FS_LAST * s);
-            dc.setColor(GRAY_LABEL, Graphics.COLOR_TRANSPARENT);
-            text(dc, s / 2, (0.892 * s).toNumber(), f, fit(dc, f, last, "", (0.64 * s).toNumber()), Graphics.TEXT_JUSTIFY_CENTER);
-        }
+    // 아래쪽 두 칸과 구분선
+    function drawBottom(dc as Graphics.Dc) as Void {
+        value(dc, (X_COL_L * s).toNumber(), _vL, _uL, _lL);
+        value(dc, (X_COL_R * s).toNumber(), _vR, _uR, _lR);
+        dc.setColor(0x303030, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(s / 2, (0.735 * s).toNumber(), 1, (0.16 * s).toNumber());
     }
 
-    // 하단 수치 한 칸: 값(0.085S) + 단위(0.042S), 그 아래 레이블(0.04S, 폭 0.31S를 넘으면 축소)
+    // 하단 값 한 칸: 값(0.10S) + 단위(0.08S), 그 아래 레이블(0.08S). 가운데 cx
     function value(dc as Graphics.Dc, cx as Number, v as String, unit as String, label as String) as Void {
-        var fv = fonts.num(0.085 * s);
-        var fu = fonts.kr(FS_UNIT * s);
+        var fv = fonts.num(FS_VALUE * s);
+        var fu = fonts.kr(FS_MIN * s);
         var w1 = dc.getTextWidthInPixels(v, fv);
         var w2 = dc.getTextWidthInPixels(unit, fu);
-        var gap = (0.01 * s).toNumber();
+        var gap = (0.012 * s).toNumber();
         var x = cx - (w1 + gap + w2) / 2;
-        var vy = (0.785 * s).toNumber();
+        var vy = (Y_VALUE * s).toNumber();
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         text(dc, x, vy, fv, v, Graphics.TEXT_JUSTIFY_LEFT);
         dc.setColor(GRAY_LABEL, Graphics.COLOR_TRANSPARENT);
         text(dc, x + w1 + gap, vy, fu, unit, Graphics.TEXT_JUSTIFY_LEFT);
-        var lpx = FS_LABEL * s;
-        var fl = fonts.kr(lpx);
-        var lw = dc.getTextWidthInPixels(label, fl);
-        var maxW = 0.31 * s;
-        if (lw > maxW) {
-            fl = fonts.kr(((lpx * maxW / lw) / 2).toNumber() * 2);
-        }
-        dc.setColor(GRAY_LABEL, Graphics.COLOR_TRANSPARENT);
-        text(dc, cx, (0.83 * s).toNumber(), fl, label, Graphics.TEXT_JUSTIFY_CENTER);
+        text(dc, cx, (Y_LABEL * s).toNumber(), fu, label, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     // =============================================================== 도움 함수

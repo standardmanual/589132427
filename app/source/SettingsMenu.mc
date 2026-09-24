@@ -13,11 +13,19 @@ module MenuUi {
     const ID_COURSE = 100;
     const ID_REFRESH = 101;
 
-    // 글자 크기와 줄 높이 (화면 지름 S에 대한 비율). 실기기 사진을 보고 키웠습니다 (처음 0.052 / 0.04 / 줄 0.19).
-    const FONT_MAIN = 0.072;
-    const FONT_SUB = 0.058;
-    const FONT_TITLE = 0.06;
+    // 글자 크기와 줄 높이 (화면 지름 S에 대한 비율). 가장 작은 글자(보조 줄)는 시계 기본 메뉴 글자와 같은
+    // 36 px(454 px 화면 기준 0.08S)입니다. 시뮬레이터에서 같은 한글 문장의 폭을 재서 맞췄습니다
+    // (처음 0.052 / 0.04, 다음 0.072 / 0.058이 실기기에서 모두 작았음).
+    const FONT_MAIN = 0.09;
+    const FONT_SUB = 0.08;
+    const FONT_TITLE = 0.08;
     const ROW_H = 0.21;
+    // 글자는 왼쪽 정렬입니다. 줄 그림 영역(dc)은 화면 왼쪽 세로선 바로 오른쪽에서 시작합니다(454 px 화면에서
+    // 390×95, 시작점 약 x=64–77). 그래서 글자는 그 영역의 왼쪽 끝 가까이(화면 기준 약 0.19S)에 둡니다.
+    const X_TEXT = 0.02;
+    const X_RIGHT_MARGIN = 0.09;
+    const X_TITLE = 0.22;     // 제목은 전체 화면 폭 기준이라 항목 글자(줄 영역 시작점 + X_TEXT)와 맞춥니다
+    const GREEN = 0x00df3f;   // 지금 고른 값
 
     var _fonts as Fonts? = null;
 
@@ -32,28 +40,27 @@ module MenuUi {
         return System.getDeviceSettings().screenWidth;
     }
 
-    // 가운데 정렬로 한두 줄을 그립니다. 폭을 넘으면 끝을 줄입니다.
+    // 왼쪽 정렬로 한두 줄을 그립니다. 폭을 넘으면 끝을 줄입니다.
+    // 선택(포커스)한 줄의 파란 그라데이션 배경은 기본 메뉴가 그려 넓은 자리를 차지해서, 줄 영역을 검게 덮고
+    // 글자를 밝게 하는 것으로 대신합니다. 지금 고른 값은 글자를 초록으로 그립니다.
     function drawTwoLines(dc as Graphics.Dc, main as String, sub as String?, focused as Boolean, mark as Boolean) as Void {
         var s = screen();
         var w = dc.getWidth();
         var h = dc.getHeight();
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.fillRectangle(0, 0, w, h);
         var f1 = fonts().kr(FONT_MAIN * s);
         var f2 = fonts().kr(FONT_SUB * s);
         var h1 = Graphics.getFontHeight(f1);
         var h2 = sub == null ? 0 : Graphics.getFontHeight(f2);
         var y = (h - h1 - h2) / 2;
-        var maxW = (w * 0.82).toNumber();
-        if (mark) {
-            // 지금 고른 값: 초록 점
-            dc.setColor(0x00df3f, Graphics.COLOR_TRANSPARENT);
-            var tw = dc.getTextWidthInPixels(main, f1);
-            dc.fillCircle(w / 2 - (tw < maxW ? tw : maxW) / 2 - (0.035 * s).toNumber(), y + h1 / 2, (0.015 * s).toNumber() + 1);
-        }
-        dc.setColor(focused ? Graphics.COLOR_WHITE : 0xc8c8c8, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(w / 2, y, f1, fit(dc, f1, main, maxW), Graphics.TEXT_JUSTIFY_CENTER);
+        var x = (X_TEXT * s).toNumber();
+        var maxW = w - x - (X_RIGHT_MARGIN * s).toNumber();
+        dc.setColor(mark ? GREEN : focused ? Graphics.COLOR_WHITE : 0xd0d0d0, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(x, y, f1, fit(dc, f1, main, maxW), Graphics.TEXT_JUSTIFY_LEFT);
         if (sub != null) {
-            dc.setColor(focused ? 0xd8d8d8 : 0xa8a8a8, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w / 2, y + h1, f2, fit(dc, f2, sub, maxW), Graphics.TEXT_JUSTIFY_CENTER);
+            dc.setColor(mark ? 0x66e08a : focused ? 0xe0e0e0 : 0xb0b0b0, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(x, y + h1, f2, fit(dc, f2, sub, maxW), Graphics.TEXT_JUSTIFY_LEFT);
         }
     }
 
@@ -151,7 +158,7 @@ class MenuTitle extends WatchUi.Drawable {
         var s = MenuUi.screen();
         var f = MenuUi.fonts().kr(MenuUi.FONT_TITLE * s);
         dc.setColor(0xc4c4c4, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(dc.getWidth() / 2, dc.getHeight() - Graphics.getFontHeight(f) - 4, f, _text, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText((MenuUi.X_TITLE * s).toNumber(), dc.getHeight() - Graphics.getFontHeight(f) - 4, f, _text, Graphics.TEXT_JUSTIFY_LEFT);
     }
 }
 

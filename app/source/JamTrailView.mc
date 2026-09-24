@@ -316,8 +316,10 @@ class JamTrailView extends WatchUi.DataField {
                 tail = _sync.messageTail();
             }
         }
-        if (status == null && Settings.get(Settings.DIAG) == 1) {
-            status = diagLine();
+        screen.diagA = null;
+        screen.diagB = null;
+        if (Settings.get(Settings.DIAG) == 1) {
+            diagLines(screen);
         }
         var t0 = System.getTimer();
         screen.draw(dc, status, tail);
@@ -329,37 +331,41 @@ class JamTrailView extends WatchUi.DataField {
         trackMemory("draw");
     }
 
-    // 진단 표시 (설정 "진단 표시" 켬): 마지막 줄에 위치 출처와 코스 위치, 가민 남은 거리와 목적지 이름,
-    // 가민 축을 쓰지 않은 이유, 남은 메모리. 실기기에서는 로그를 볼 수 없어 사진으로 확인합니다.
-    function diagLine() as String {
+    // 진단 표시 (설정 "진단 표시" 켬): 그래프 위쪽 두 줄.
+    //   1줄: 위치 출처, 코스 위치(km), 남은 메모리
+    //   2줄: 가민 distanceToDestination, 가민 값을 쓰지 않은 이유, 가민 목적지 이름
+    // 실기기에서는 로그를 볼 수 없어 사진으로 명세 10.1 9번을 확인하는 용도입니다.
+    function diagLines(screen as WatchScreen) as Void {
         var t = _tracker;
         var free = (System.getSystemStats().freeMemory / 1024) + "K";
         if (t == null) {
-            return "위치 없음 · " + free;
+            screen.diagA = "위치 없음 " + free;
+            return;
         }
+        screen.diagA = t.sourceName() + " " + (t.d / 1000.0).format("%.2f") + " " + free;
         var dtd = t.lastDtd;
-        var line = t.sourceName() + " " + (t.d / 1000.0).format("%.2f") + " · dtd " + (dtd == null ? "-" : dtd.format("%.0f"));
+        var line = "dtd " + (dtd == null ? "-" : dtd.format("%.0f"));
         var gs = t.garminState;
         if (!gs.equals("ok") && !gs.equals("none") && !gs.equals("-")) {
             line += " (" + gs + ")";
         }
         var dest = t.lastDest;
         if (dest != null) {
-            line += " · " + dest;
+            line += " " + dest;
         }
-        return line + " · " + free;
+        screen.diagB = line;
     }
 
-    // 코스가 없을 때 가운데 문구 (명세 4.3)
+    // 코스가 없을 때 가운데 문구 (명세 4.3). 글자는 모두 36 px 이상입니다.
     function center(dc as Graphics.Dc, screen as WatchScreen, line1 as String, line2 as String?) as Void {
         var s = screen.s;
-        var f1 = screen.fonts.kr(0.06 * s);
+        var f1 = screen.fonts.kr(0.09 * s);
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        screen.text(dc, s / 2, (0.5 * s).toNumber(), f1, line1, Graphics.TEXT_JUSTIFY_CENTER);
+        screen.text(dc, s / 2, (0.44 * s).toNumber(), f1, line1, Graphics.TEXT_JUSTIFY_CENTER);
         if (line2 != null) {
-            var f2 = screen.fonts.kr(0.04 * s);
+            var f2 = screen.fonts.kr(WatchScreen.FS_MIN * s);
             dc.setColor(0xc4c4c4, Graphics.COLOR_TRANSPARENT);
-            screen.wrapped(dc, s / 2, (0.58 * s).toNumber(), f2, line2, (0.80 * s).toNumber());
+            screen.wrapped(dc, s / 2, (0.53 * s).toNumber(), f2, line2, (0.84 * s).toNumber());
         }
     }
 }
