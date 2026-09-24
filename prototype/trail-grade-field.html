@@ -771,8 +771,8 @@ function windowBase(d,w0,w1,V){
 }
 function viewRange(seg,next){
   var c0=seg.startD,c1=seg.endD,endD=seg.endD,endLabel;
-  if(seg.type==='FLAT'){if(next){c1=next.endD;endD=next.startD;endLabel=next.type==='UP'?'오르막 시작':'내리막 시작';}else endLabel='도착';}
-  else endLabel=(seg.type==='UP'?'정상 ':'바닥 ')+Math.round(C.ele[seg.e]);
+  if(seg.type==='FLAT'){if(next){c1=next.endD;endD=next.startD;endLabel=(next.type==='UP'?'오르막 시작 ':'내리막 시작 ')+Math.round(C.ele[next.s]);}else endLabel='도착';}
+  else endLabel=(seg.type==='UP'?'오르막 끝 ':'내리막 끝 ')+Math.round(C.ele[seg.e]);
   var pad=Math.max(60,(c1-c0)*0.07);
   return {r0:c0-pad,r1:c1+pad,c0:c0,c1:c1,endD:endD,endLabel:endLabel};
 }
@@ -840,18 +840,19 @@ function drawWatch(){
     var sx2=cx-(w1+0.01*S+w2)/2;
     text(ctx,v,sx2,vy,{size:vFs,font:FONT_NUM,weight:600,align:'left',color:'#ffffff'});
     text(ctx,unit,sx2+w1+0.01*S,vy,{size:uFs,align:'left',color:'#9a9a9a'});
-    text(ctx,label,cx,ly,{size:lFs,color:'#8f8f8f'});
+    ctx.font='500 '+lFs+'px '+FONT_KR;var lw=ctx.measureText(label).width,maxW=0.31*S;
+    text(ctx,label,cx,ly,{size:lw>maxW?lFs*maxW/lw:lFs,color:'#8f8f8f'});
   }
   var remD=Math.max(0,seg.endD-d);
   if(seg.type==='UP'){
     val(colL,'+'+Math.round(Math.max(0,C.asc[seg.e]-arrAt(C.asc,d))),'m','남은 상승');val(colR,km(remD),'km','남은 거리');
-    last='정상 '+fmtInt(seg.hi)+' m · 구간 '+km(seg.len)+' km';
+    last='오르막 끝 '+fmtInt(C.ele[seg.e])+' m · 구간 '+km(seg.len)+' km';
   }else if(seg.type==='DOWN'){
     val(colL,'−'+Math.round(Math.max(0,C.desc[seg.e]-arrAt(C.desc,d))),'m','남은 하강');val(colR,km(remD),'km','남은 거리');
-    last='바닥 '+fmtInt(seg.lo)+' m · 구간 '+km(seg.len)+' km';
+    last='내리막 끝 '+fmtInt(C.ele[seg.e])+' m · 구간 '+km(seg.len)+' km';
   }else if(next){
-    val(colL,km(Math.max(0,next.startD-d)),'km',next.type==='UP'?'다음 오르막까지':'다음 내리막까지');
-    val(colR,(next.type==='UP'?'+':'−')+Math.round(Math.abs(next.dEle)),'m',km(next.len)+' km · 평균 '+Math.abs(next.avg).toFixed(0)+'%');
+    val(colL,km(Math.max(0,next.startD-d)),'km',next.type==='UP'?'오르막까지':'내리막까지');
+    val(colR,(next.type==='UP'?'+':'−')+Math.round(Math.abs(next.dEle)),'m',(next.len/1000).toFixed(1)+' km · 평균 '+Math.abs(next.avg).toFixed(0)+'%');
     last='현재 고도 '+fmtInt(eleAt(d))+' m';
   }else{
     val(colL,km(Math.max(0,C.total-d)),'km','도착까지');val(colR,fmtInt(eleAt(d)),'m','현재 고도');
@@ -876,7 +877,7 @@ function drawCompare(){
     var pad=Math.max(40,s.len*0.06);
     drawProfile(ctx,{x:14,y:14,w:W-28,h:H-44},{r0:s.startD-pad,r1:s.endD+pad,c0:s.startD,c1:s.endD,exag:settings.exag,fixed:c[2],
       colorOn:!!settings.colorOn,fan:'left',u:1,fs:{label:12,fan:11,scale:11.5},scaleBar:{y:H-11,align:'left'},
-      endD:s.endD,endLabel:'정상 '+Math.round(C.ele[s.e])});
+      endD:s.endD,endLabel:'오르막 끝 '+Math.round(C.ele[s.e])});
   });
 }
 
