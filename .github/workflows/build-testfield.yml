@@ -94,6 +94,11 @@ jobs:
               mv "$RUNNER_TEMP/key.raw" "$RUNNER_TEMP/key.der"
             fi
             rm -f "$RUNNER_TEMP/key.raw"
+            if ! openssl pkey -inform DER -in "$RUNNER_TEMP/key.der" -noout 2>/dev/null; then
+              echo "::error::CIQ_DEVELOPER_KEY_B64 값이 Connect IQ 개발자 키(RSA 개인키)가 아닙니다. -----BEGIN PRIVATE KEY-----로 시작하는 .pem 내용 전체를 넣어 주세요. Garmin 개발자 프로그램의 key/secret 값은 서명 키가 아닙니다."
+              rm -f "$RUNNER_TEMP/key.der"
+              exit 1
+            fi
             echo "KEY_KIND=secret" >> "$GITHUB_ENV"
             echo "저장소 비밀값의 개발자 키를 씁니다."
           else
