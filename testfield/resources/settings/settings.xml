@@ -1,0 +1,5 @@
+<settings>
+    <setting propertyKey="@Properties.memo" title="@Strings.MemoTitle">
+        <settingConfig type="alphaNumeric"/>
+    </setting>
+</settings>

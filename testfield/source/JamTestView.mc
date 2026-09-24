@@ -45,6 +45,8 @@ class JamTestView extends WatchUi.DataField {
     var _peakUsed as Number = 0;
     var _totalMem as Number = 0;
 
+    var _memo as String = "?";
+
     var _tapCount as Number = 0;
     var _page as Number = 0;
     var _lockUntil as Number = 0;
@@ -74,7 +76,18 @@ class JamTestView extends WatchUi.DataField {
         runStep();
     }
 
+    // 폰(Connect IQ 앱) 설정에서 바꾼 값을 읽습니다. 베타 앱에서 폰 설정이 되는지 확인용.
+    function loadSettings() as Void {
+        try {
+            var v = Application.Properties.getValue("memo");
+            _memo = (v == null) ? "null" : v.toString();
+        } catch (e) {
+            _memo = "ERR " + errName(e);
+        }
+    }
+
     function onFirstCompute(info as Activity.Info) as Void {
+        loadSettings();
         // 실행 횟수와 이전 결과 확인 (보존 시험)
         var prevCount = -1;
         try {
@@ -220,7 +233,7 @@ class JamTestView extends WatchUi.DataField {
         try {
             var ba = [1, 2, 3, 250]b;
             Application.Storage.setValue("jt_ba", untyped(ba));
-            var back = Application.Storage.getValue("jt_ba");
+            var back = untyped(Application.Storage.getValue("jt_ba"));
             if (back instanceof ByteArray) {
                 addLine("bytearray store OK size=" + (back as ByteArray).size());
             } else {
@@ -282,6 +295,7 @@ class JamTestView extends WatchUi.DataField {
 
     function updateNav(info as Activity.Info) as Void {
         _navLines = [
+            "phone memo " + _memo,
             "timer " + timerName(info.timerState),
             "toDest " + num(info.distanceToDestination),
             "toNext " + num(info.distanceToNextPoint),

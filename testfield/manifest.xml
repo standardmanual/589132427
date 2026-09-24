@@ -3,11 +3,9 @@
     <!-- JAM Trail 시험 필드. 본 앱과 섞이지 않도록 별도 UUID를 씁니다. -->
     <iq:application id="ec7e18be-52b0-4eb9-b2ca-cda733808a2d" type="datafield" name="@Strings.AppName" entry="JamTestApp" launcherIcon="@Drawables.LauncherIcon" minApiLevel="5.0.0">
         <iq:products>
+            <!-- fēnix 8 AMOLED 43mm, 47/51mm -->
             <iq:product id="fenix843mm"/>
             <iq:product id="fenix847mm"/>
-            <iq:product id="fenix8pro47mm"/>
-            <iq:product id="fenix8solar47mm"/>
-            <iq:product id="fenix8solar51mm"/>
         </iq:products>
         <iq:permissions>
             <iq:uses-permission id="Communications"/>

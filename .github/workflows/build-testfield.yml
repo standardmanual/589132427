@@ -1,9 +1,18 @@
-# JAM Trail 시험 필드(testfield/)를 빌드해 .prg 파일을 Actions 산출물로 올립니다.
+# JAM Trail 시험 필드(testfield/)를 빌드합니다.
 #
-# - SDK: Garmin 공식 주소에서 받습니다. 실패하면 openhab-garmin 저장소에 공개된 같은 버전 사본을 씁니다.
-# - 기기 파일: fēnix 8 47/51mm(fenix847mm)는 openhab-garmin 저장소에 공개된 사본을 씁니다.
-#   Connect IQ SDK와 기기 파일은 Connect IQ Developer Agreement를 따르며, 앱 개발·시험 목적으로만 씁니다.
-# - 개발자 키: 빌드할 때마다 임시로 만듭니다(사이드로드 시험용).
+# 산출물
+#   JAMTEST-iq      : Connect IQ 스토어 업로드용 패키지 (JAMTEST.iq). 개발자 키 비밀값이 있을 때만 만듭니다.
+#   JAMTEST-prg     : 기기별 .prg (확인용)
+#
+# 준비
+#   저장소 Settings → Secrets and variables → Actions → New repository secret
+#   이름: CIQ_DEVELOPER_KEY_B64
+#   값  : 개발자 키 파일(.der 또는 .pem)을 Base64로 인코딩한 한 줄 문자열
+#   스토어 앱은 처음 업로드한 키로만 업데이트할 수 있으므로 항상 같은 키를 씁니다.
+#
+# SDK는 Garmin 공식 주소에서 받습니다. 기기 파일(fēnix 8 43mm, 47/51mm)은 공개 저장소
+# mgallesio/granbike-face-builder에 있는 사본을 씁니다. SDK와 기기 파일은
+# Connect IQ Developer Agreement를 따르며 앱 개발·시험 목적으로만 씁니다.
 name: Build test field
 
 on:
@@ -17,9 +26,10 @@ permissions:
   contents: read
 
 env:
-  SDK_NAME: connectiq-sdk-lin-8.2.1-2025-06-19-f69b94140
-  OPENHAB_REF: 86ba367144839b5501008d3a96f1042393f9e431
-  DEVICE: fenix847mm
+  SDK_FALLBACK: connectiq-sdk-lin-8.2.1-2025-06-19-f69b94140
+  DEVICES_REPO: https://github.com/mgallesio/granbike-face-builder.git
+  DEVICES_REF: 4dff743377cde3c09c9204d3c948d8076129b433
+  DEVICES: fenix843mm fenix847mm
 
 jobs:
   build:
@@ -28,62 +38,93 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
 
-      - name: Connect IQ SDK 받기
+      - name: Connect IQ SDK 받기 (최신)
         run: |
           set -e
-          mkdir -p "$HOME/ciq"
-          if curl -fsSL --retry 2 -o sdk.zip "https://developer.garmin.com/downloads/connect-iq/sdks/${SDK_NAME}.zip" && unzip -tq sdk.zip >/dev/null; then
-            echo "Garmin 공식 주소에서 SDK를 받았습니다."
-            unzip -q sdk.zip -d "$HOME/ciq/sdk"
-          else
-            echo "::warning::Garmin 주소에서 SDK를 받지 못해 openhab-garmin의 사본을 씁니다."
-            git init -q oh && cd oh
-            git remote add origin https://github.com/openhab/openhab-garmin.git
-            git sparse-checkout init --cone
-            git sparse-checkout set ".github/ConnectIQ/Sdks/${SDK_NAME}"
-            git fetch -q --depth 1 --filter=blob:none origin "$OPENHAB_REF"
-            git checkout -q FETCH_HEAD
-            cd ..
-            cp -r "oh/.github/ConnectIQ/Sdks/${SDK_NAME}" "$HOME/ciq/sdk"
-          fi
-          # zip 안에 최상위 폴더가 하나 더 있는 경우를 처리
-          MONKEYC=$(find "$HOME/ciq/sdk" -path "*/bin/monkeyc" | head -1)
+          LATEST=$(curl -fsSL --retry 2 https://developer.garmin.com/downloads/connect-iq/sdks/sdks.json \
+            | grep -o 'connectiq-sdk-lin-[0-9][0-9.]*-[0-9-]*-[0-9a-f]*\.zip' | sort -uV | tail -1 || true)
+          SDK_ZIP=${LATEST:-${SDK_FALLBACK}.zip}
+          echo "SDK: $SDK_ZIP"
+          curl -fsSL --retry 2 -o sdk.zip "https://developer.garmin.com/downloads/connect-iq/sdks/${SDK_ZIP}"
+          unzip -q sdk.zip -d "$HOME/ciq-sdk"
+          MONKEYC=$(find "$HOME/ciq-sdk" -path "*/bin/monkeyc" | head -1)
           test -n "$MONKEYC"
           chmod +x "$MONKEYC"
           echo "MONKEYC=$MONKEYC" >> "$GITHUB_ENV"
           "$MONKEYC" --version || true
 
-      - name: 기기 파일 받기 (${{ env.DEVICE }})
+      - name: 기기 파일 받기
         run: |
           set -e
           rm -rf dev && git init -q dev && cd dev
-          git remote add origin https://github.com/openhab/openhab-garmin.git
+          git remote add origin "$DEVICES_REPO"
           git sparse-checkout init --cone
-          git sparse-checkout set ".github/ConnectIQ/Devices/${DEVICE}"
-          git fetch -q --depth 1 --filter=blob:none origin "$OPENHAB_REF"
+          git sparse-checkout set $(for d in $DEVICES; do printf 'backend/devices/%s ' "$d"; done)
+          git fetch -q --depth 1 --filter=blob:none origin "$DEVICES_REF"
           git checkout -q FETCH_HEAD
           cd ..
           mkdir -p "$HOME/.Garmin/ConnectIQ/Devices"
-          cp -r "dev/.github/ConnectIQ/Devices/${DEVICE}" "$HOME/.Garmin/ConnectIQ/Devices/"
-          ls "$HOME/.Garmin/ConnectIQ/Devices/${DEVICE}" | head
+          for d in $DEVICES; do
+            cp -r "dev/backend/devices/$d" "$HOME/.Garmin/ConnectIQ/Devices/"
+            echo "$d: $(ls "$HOME/.Garmin/ConnectIQ/Devices/$d" | wc -l) files"
+          done
 
-      - name: 임시 개발자 키 만들기
+      - name: 개발자 키 준비
+        env:
+          KEY_B64: ${{ secrets.CIQ_DEVELOPER_KEY_B64 }}
         run: |
-          openssl genrsa -out "$RUNNER_TEMP/key.pem" 4096
-          openssl pkcs8 -topk8 -inform PEM -outform DER -in "$RUNNER_TEMP/key.pem" -out "$RUNNER_TEMP/key.der" -nocrypt
+          set -e
+          if [ -n "$KEY_B64" ]; then
+            echo "$KEY_B64" | tr -d ' \r\n' | base64 -d > "$RUNNER_TEMP/key.raw"
+            if grep -q "BEGIN" "$RUNNER_TEMP/key.raw"; then
+              # PEM이면 DER(PKCS#8)로 바꿉니다
+              openssl pkcs8 -topk8 -inform PEM -outform DER -in "$RUNNER_TEMP/key.raw" -out "$RUNNER_TEMP/key.der" -nocrypt
+            else
+              mv "$RUNNER_TEMP/key.raw" "$RUNNER_TEMP/key.der"
+            fi
+            rm -f "$RUNNER_TEMP/key.raw"
+            echo "KEY_KIND=secret" >> "$GITHUB_ENV"
+            echo "저장소 비밀값의 개발자 키를 씁니다."
+          else
+            openssl genrsa -out "$RUNNER_TEMP/key.pem" 4096 2>/dev/null
+            openssl pkcs8 -topk8 -inform PEM -outform DER -in "$RUNNER_TEMP/key.pem" -out "$RUNNER_TEMP/key.der" -nocrypt
+            echo "KEY_KIND=temp" >> "$GITHUB_ENV"
+            echo "::warning::CIQ_DEVELOPER_KEY_B64 비밀값이 없어 임시 키로 빌드합니다. 스토어용 .iq는 만들지 않습니다."
+          fi
 
-      - name: 빌드
+      - name: 기기별 빌드 (.prg)
         run: |
+          set -e
           mkdir -p out
-          "$MONKEYC" -f testfield/monkey.jungle -d "$DEVICE" -y "$RUNNER_TEMP/key.der" -o out/JAMTEST.prg -w -l 1
+          for d in $DEVICES; do
+            "$MONKEYC" -f testfield/monkey.jungle -d "$d" -y "$RUNNER_TEMP/key.der" -o "out/JAMTEST-$d.prg" -w -l 1
+          done
+
+      - name: 스토어용 패키지 (.iq)
+        if: env.KEY_KIND == 'secret'
+        run: |
+          set -e
+          "$MONKEYC" -e -r -f testfield/monkey.jungle -y "$RUNNER_TEMP/key.der" -o out/JAMTEST.iq -w -l 1
+          ls -la out
+
+      - name: 키 파일 지우기
+        if: always()
+        run: rm -f "$RUNNER_TEMP/key.der" "$RUNNER_TEMP/key.pem"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: JAMTEST-${{ env.DEVICE }}
-          path: out/JAMTEST.prg
+          name: JAMTEST-prg
+          path: out/*.prg
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: env.KEY_KIND == 'secret'
+        with:
+          name: JAMTEST-iq
+          path: out/JAMTEST.iq
           if-no-files-found: error

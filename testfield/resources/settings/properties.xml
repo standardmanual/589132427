@@ -1,0 +1,4 @@
+<properties>
+    <!-- 폰 설정 시험용 값. 시계 마지막 페이지에 "phone memo"로 표시됩니다. -->
+    <property id="memo" type="string">none</property>
+</properties>
