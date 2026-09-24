@@ -1,0 +1,3 @@
+# 시험 재생 빌드 (scripts/sim-app.sh --replay). 가상 러너로 위치 결정을 시험합니다.
+project.manifest = manifest.xml
+base.excludeAnnotations = replay_off

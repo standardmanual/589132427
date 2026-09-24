@@ -94,6 +94,44 @@ class CourseProfile {
         segX[c.segCount] = xOf(total, total);
     }
 
+    // 코스 위치 d(m)의 그래프 좌표 [x, y]. 현재 위치 표시에 씁니다.
+    function pointAt(c as TrailCourse, d as Float) as [Number, Number] {
+        var I = c.interval;
+        var f = d / I;
+        var q = f.toNumber();
+        if (q > c.n - 2) {
+            q = c.n - 2;
+        }
+        var e0 = c.ele(q);
+        var e = e0 + (c.ele(q + 1) - e0) * (f - q);
+        var x = xOf(d, c.lengthM().toFloat());
+        var y = (top + (1.0 - (e - yMin) / (yMax - yMin)) * (base - top) + 0.5).toNumber();
+        return [x, y];
+    }
+
+    // 현재 위치 표시 (명세 3.4 8번): 꼭짓점이 프로파일에 닿는 아래 방향 삼각형.
+    // 코스 이탈 중에는 주황 테두리만 그립니다.
+    function drawMarker(dc as Graphics.Dc, s as Number, x as Number, y as Number, offCourse as Boolean) as Void {
+        var hw = (s * 0.025 + 0.5).toNumber();
+        var h = (s * 0.034 + 0.5).toNumber();
+        var pts = [[x, y], [x - hw, y - h], [x + hw, y - h]];
+        if (offCourse) {
+            dc.setColor(0xfab219, Graphics.COLOR_TRANSPARENT);
+            dc.setPenWidth(2);
+            dc.drawLine(x, y, x - hw, y - h);
+            dc.drawLine(x - hw, y - h, x + hw, y - h);
+            dc.drawLine(x + hw, y - h, x, y);
+            dc.setPenWidth(1);
+        } else {
+            dc.setColor(0xff1f1f, Graphics.COLOR_TRANSPARENT);
+            dc.fillPolygon(pts);
+            dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+            dc.drawLine(x, y, x - hw, y - h);
+            dc.drawLine(x - hw, y - h, x + hw, y - h);
+            dc.drawLine(x + hw, y - h, x, y);
+        }
+    }
+
     function xOf(d as Number or Float, total as Float) as Number {
         return (x0 + d / total * width + 0.5).toNumber();
     }

@@ -6,11 +6,16 @@ import Toybox.WatchUi;
 
 // JAM Trail 데이터 필드.
 // 4단계: 코스 받기·저장·복원과 상태 표시(명세 4.3).
-// 5단계: 코스 전체 정적 그래프(CourseProfile). 위치에 따른 그래프는 6·7단계에서 바꿉니다.
+// 5단계: 코스 전체 정적 그래프(CourseProfile). 위치에 따른 그래프는 7단계에서 바꿉니다.
+// 6단계: 위치 결정(PositionTracker)과 현재 위치 표시. DEBUG_REPLAY면 가상 러너(Replay)로 시험합니다.
 class JamTrailView extends WatchUi.DataField {
     var _sync as CourseSync;
     var _course as TrailCourse? = null;
     var _profile as CourseProfile? = null;
+    var _geo as CourseGeo? = null;
+    var _tracker as PositionTracker? = null;
+    var _replay as Replay? = null;
+    var _input as PosInput = new PosInput();
     var _started as Boolean = false;
     var _peakMem as Number = 0;
 
@@ -40,8 +45,37 @@ class JamTrailView extends WatchUi.DataField {
         if (c != null) {
             _course = c;
             _profile = null; // 다음 그리기에서 새 코스로 다시 만듭니다
+            _geo = null;
         }
+        updatePosition(info, now);
         trackMemory("compute");
+    }
+
+    function updatePosition(info as Activity.Info, now as Number) as Void {
+        var course = _course;
+        if (course == null) {
+            return;
+        }
+        var geo = _geo;
+        if (geo == null) {
+            geo = new CourseGeo(course);
+            _geo = geo;
+            _tracker = new PositionTracker(geo);
+            _replay = null;
+        }
+        if (!geo.buildStep()) {
+            return; // 체크포인트 표를 만드는 중 (100 km 코스는 4번에 나눠 만듦)
+        }
+        if (TrailConfig.DEBUG_REPLAY) {
+            if (_replay == null) {
+                _replay = new Replay(geo);
+            }
+            var r = _replay as Replay;
+            r.tick();
+            _tracker = r.tracker;
+            return;
+        }
+        (_tracker as PositionTracker).update(_input.fromInfo(info), now);
     }
 
     // 메모리 최고치가 1 KB 넘게 오를 때마다 기록합니다.
@@ -89,6 +123,7 @@ class JamTrailView extends WatchUi.DataField {
         }
         drawCourseHeader(dc, s, course, profile);
         profile.draw(dc);
+        drawPosition(dc, s, course, profile);
         trackMemory("draw");
 
         var msg = _sync.message(now);
@@ -110,8 +145,24 @@ class JamTrailView extends WatchUi.DataField {
         drawFit(dc, cx, (s * 0.70).toNumber(), Graphics.FONT_XTINY,
             "오르막 " + c.upCount + " · 내리막 " + c.downCount + " · 평지 " + (c.segCount - c.upCount - c.downCount),
             "", (s * 0.80).toNumber());
-        dc.drawText(cx, (s * 0.77).toNumber(), Graphics.FONT_XTINY,
-            p.yMin.format("%.0f") + "–" + p.yMax.format("%.0f") + " m", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // 현재 위치 삼각형과 위치 정보 줄. 코스 이탈 중이면 위쪽에 경고를 띄웁니다(명세 4.2).
+    function drawPosition(dc as Graphics.Dc, s as Number, c as TrailCourse, p as CourseProfile) as Void {
+        var t = _tracker;
+        if (t == null || !t.known) {
+            return;
+        }
+        var pt = p.pointAt(c, t.d);
+        p.drawMarker(dc, s, pt[0], pt[1], t.off);
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(s / 2, (s * 0.77).toNumber(), Graphics.FONT_XTINY,
+            (t.d / 1000.0).format("%.2f") + " km · " + t.sourceName(), Graphics.TEXT_JUSTIFY_CENTER);
+        if (t.off) {
+            dc.setColor(0xfab219, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(s / 2, (s * 0.08).toNumber(), Graphics.FONT_XTINY,
+                "! 코스 이탈 " + t.offDist.format("%.0f") + " m", Graphics.TEXT_JUSTIFY_CENTER);
+        }
     }
 
     function center(dc as Graphics.Dc, s as Number, line1 as String, line2 as String?) as Void {
