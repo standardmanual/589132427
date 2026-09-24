@@ -52,17 +52,18 @@ Connect IQ를 설정할 때 만든 파일입니다. 이름은 보통 `developer_
 ## 3. 빌드 (자동)
 
 - `testfield/`가 바뀌어 푸시되면 자동으로 빌드됩니다. 직접 돌리려면 **Actions → Build test field → Run workflow**를 누릅니다.
-- 끝나면 실행 화면 아래 **Artifacts**에 두 가지가 생깁니다.
-  - `JAMTEST-iq`: 스토어 업로드용 `JAMTEST.iq`가 든 zip. 비밀값이 등록돼 있을 때만 생깁니다.
-  - `JAMTEST-prg`: 기기별 `.prg` (확인용)
-- `JAMTEST-iq` zip을 받아 압축을 풀면 `JAMTEST.iq`가 나옵니다.
+- 끝나면 스토어 업로드용 파일이 아래 주소에 올라갑니다. 비밀값이 등록돼 있을 때만 올라갑니다.
+  `https://github.com/standardmanual/589132427/releases/download/testfield-latest/JAMTEST.iq`
+  주소를 열면 `JAMTEST.iq` 파일이 바로 받아집니다. 저장소 첫 화면 오른쪽 **Releases → JAM Trail Test (최신 빌드)**에서도 받을 수 있습니다.
+- **`JAMTEST.iq`는 압축을 풀지 마세요.** `.iq`는 속이 zip 형식이라 압축 프로그램이 폴더로 풀어 버릴 수 있습니다. 받은 파일을 그대로 스토어에 올립니다.
+- 실행 화면 아래 **Artifacts**의 `JAMTEST-iq`(같은 파일을 zip으로 한 번 더 감싼 것)와 `JAMTEST-prg`(기기별 `.prg`, 확인용)는 참고용입니다.
 
 ## 4. 스토어에 베타 앱으로 올리기
 
 Garmin 개발자 사이트는 이 작업 환경에서 열리지 않아 화면 이름은 다를 수 있습니다.
 
 1. `https://apps-developer.garmin.com`에 Garmin 계정으로 로그인합니다. 처음이면 개발자 약관에 동의합니다.
-2. 앱 업로드를 고르고 `JAMTEST.iq`를 올립니다.
+2. 앱 업로드를 고르고 받은 `JAMTEST.iq`를 압축을 풀지 않은 채 그대로 올립니다.
 3. **Beta App**에 체크합니다. 베타 앱은 심사 없이 올린 본인 계정에만 보입니다.
 4. 앱 이름(JAM Trail Test), 설명, 분류(데이터 필드)를 넣고 제출합니다.
 

@@ -1,8 +1,13 @@
 # JAM Trail 시험 필드(testfield/)를 빌드합니다.
 #
 # 산출물
-#   JAMTEST-iq      : Connect IQ 스토어 업로드용 패키지 (JAMTEST.iq). 개발자 키 비밀값이 있을 때만 만듭니다.
+#   릴리스 testfield-latest : 스토어 업로드용 JAMTEST.iq를 압축 없이 바로 받는 곳. 개발자 키 비밀값이 있고
+#                             기본 브랜치에서 빌드할 때만 올립니다.
+#                             https://github.com/standardmanual/589132427/releases/download/testfield-latest/JAMTEST.iq
+#   JAMTEST-iq      : 같은 JAMTEST.iq를 zip으로 감싼 산출물. 개발자 키 비밀값이 있을 때만 만듭니다.
 #   JAMTEST-prg     : 기기별 .prg (확인용)
+#
+# .iq는 그 자체가 zip 형식이라 압축 프로그램이 풀어 버릴 수 있습니다. 스토어에는 풀지 않은 파일을 올립니다.
 #
 # 준비
 #   저장소 Settings → Secrets and variables → Actions → New repository secret
@@ -22,8 +27,9 @@ on:
       - ".github/workflows/build-testfield.yml"
   workflow_dispatch:
 
+# 릴리스에 .iq를 올리려면 쓰기 권한이 필요합니다.
 permissions:
-  contents: read
+  contents: write
 
 env:
   SDK_FALLBACK: connectiq-sdk-lin-8.2.1-2025-06-19-f69b94140
@@ -37,6 +43,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-java@v5
         with:
@@ -122,6 +130,7 @@ jobs:
           set -e
           "$MONKEYC" -e -r -f testfield/monkey.jungle -y "$RUNNER_TEMP/key.der" -o out/JAMTEST.iq -w -l 1
           ls -la out
+          unzip -l out/JAMTEST.iq || true
           if [ "$KEY_KIND" != "secret" ]; then rm -f out/JAMTEST.iq; echo "임시 키 패키지는 지웠습니다."; fi
 
       - name: 키 파일 지우기
@@ -140,3 +149,22 @@ jobs:
           name: JAMTEST-iq
           path: out/JAMTEST.iq
           if-no-files-found: error
+
+      # zip으로 감싸지 않은 .iq를 바로 받을 수 있도록 릴리스 testfield-latest에 올립니다.
+      - name: 릴리스에 .iq 올리기
+        if: env.KEY_KIND == 'secret' && github.ref_name == github.event.repository.default_branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: testfield-latest
+        run: |
+          set -e
+          NOTES="JAM Trail Test 스토어 업로드용 패키지 (커밋 ${GITHUB_SHA::7}, 빌드 ${GITHUB_RUN_ID}).
+          JAMTEST.iq는 압축을 풀지 말고 그대로 스토어에 올립니다."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes "$NOTES"
+          else
+            gh release create "$TAG" --target "$GITHUB_SHA" --prerelease --title "JAM Trail Test (최신 빌드)" --notes "$NOTES"
+          fi
+          gh release upload "$TAG" out/JAMTEST.iq --clobber
+          echo "https://github.com/${GH_REPO}/releases/download/${TAG}/JAMTEST.iq"
