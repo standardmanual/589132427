@@ -55,7 +55,7 @@ Connect IQ를 설정할 때 만든 파일입니다. 이름은 보통 `developer_
 - 끝나면 스토어 업로드용 파일이 아래 주소에 올라갑니다. 비밀값이 등록돼 있을 때만 올라갑니다.
   `https://github.com/standardmanual/589132427/releases/download/testfield-latest/JAMTEST.iq`
   주소를 열면 `JAMTEST.iq` 파일이 바로 받아집니다. 저장소 첫 화면 오른쪽 **Releases → JAM Trail Test (최신 빌드)**에서도 받을 수 있습니다.
-- **`JAMTEST.iq`는 압축을 풀지 마세요.** `.iq`는 속이 zip 형식이라 압축 프로그램이 폴더로 풀어 버릴 수 있습니다. 받은 파일을 그대로 스토어에 올립니다.
+- **`JAMTEST.iq`는 압축을 풀지 마세요.** `.iq`는 속이 7z 압축 형식이라 반디집 같은 압축 프로그램이 `JAMTEST` 폴더로 풀어 버릴 수 있습니다. 폴더 안의 파일들로는 스토어에 올릴 수 없습니다. 받은 파일을 그대로 스토어에 올립니다.
 - 실행 화면 아래 **Artifacts**의 `JAMTEST-iq`(같은 파일을 zip으로 한 번 더 감싼 것)와 `JAMTEST-prg`(기기별 `.prg`, 확인용)는 참고용입니다.
 
 ## 4. 스토어에 베타 앱으로 올리기

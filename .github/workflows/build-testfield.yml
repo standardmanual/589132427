@@ -7,7 +7,8 @@
 #   JAMTEST-iq      : 같은 JAMTEST.iq를 zip으로 감싼 산출물. 개발자 키 비밀값이 있을 때만 만듭니다.
 #   JAMTEST-prg     : 기기별 .prg (확인용)
 #
-# .iq는 그 자체가 zip 형식이라 압축 프로그램이 풀어 버릴 수 있습니다. 스토어에는 풀지 않은 파일을 올립니다.
+# .iq는 그 자체가 7z 압축 형식이라 반디집 같은 압축 프로그램이 JAMTEST 폴더로 풀어 버릴 수 있습니다.
+# 스토어에는 풀지 않은 파일을 올립니다.
 #
 # 준비
 #   저장소 Settings → Secrets and variables → Actions → New repository secret
@@ -130,7 +131,7 @@ jobs:
           set -e
           "$MONKEYC" -e -r -f testfield/monkey.jungle -y "$RUNNER_TEMP/key.der" -o out/JAMTEST.iq -w -l 1
           ls -la out
-          unzip -l out/JAMTEST.iq || true
+          file out/JAMTEST.iq
           if [ "$KEY_KIND" != "secret" ]; then rm -f out/JAMTEST.iq; echo "임시 키 패키지는 지웠습니다."; fi
 
       - name: 키 파일 지우기
