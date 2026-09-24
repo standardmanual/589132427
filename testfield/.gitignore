@@ -1,0 +1,9 @@
+# 빌드 결과
+bin/
+*.prg
+*.prg.debug.xml
+*.iq
+# 개발자 키는 절대 올리지 않습니다 (공개 저장소)
+*.der
+*.pem
+developer_key*

@@ -1,0 +1,8 @@
+# Connect IQ 개발자 키와 빌드 결과는 올리지 않습니다 (공개 저장소)
+*.der
+*.pem
+developer_key*
+*.prg
+*.prg.debug.xml
+*.iq
+bin/
