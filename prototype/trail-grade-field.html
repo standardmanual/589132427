@@ -723,12 +723,15 @@ function drawProfile(ctx,box,o){
     var ex2=X(o.endD),ey2=endY;
     ctx.beginPath();ctx.arc(ex2,ey2,6.8*u,0,Math.PI*2);ctx.fillStyle='#000';ctx.fill();
     ctx.beginPath();ctx.arc(ex2,ey2,5*u,0,Math.PI*2);ctx.fillStyle=o.endColor||'#e8e8e8';ctx.fill();
-    ctx.font='500 '+fs.label+'px '+FONT_KR;var tw=ctx.measureText(o.endLabel).width,lx,ly=ey2-10*u,al='center';
-    if(ly-fs.label<box.y+2*u){al='right';lx=ex2-9*u;ly=ey2+fs.label*1.25;if(lx-tw<box.x){al='left';lx=ex2+9*u;}}
+    // 레이블은 두 줄 ("오르막" / "끝"). 기본은 점 위, 위쪽에 자리가 없으면 점 아래 옆
+    var lines=o.endLabel.split(' '),lh=fs.label*1.12,tw=0;
+    ctx.font='500 '+fs.label+'px '+FONT_KR;lines.forEach(function(t){tw=Math.max(tw,ctx.measureText(t).width);});
+    var lx,ly0=ey2-10*u-lh*(lines.length-1),al='center';
+    if(ly0-fs.label<box.y+2*u){al='right';lx=ex2-9*u;ly0=ey2+fs.label*1.25;if(lx-tw<box.x){al='left';lx=ex2+9*u;}}
     else lx=clamp(ex2,box.x+tw/2,box.x+box.w-tw/2);
     var bx0=al==='right'?lx-tw:al==='left'?lx:lx-tw/2;
-    ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(bx0-3*u,ly-fs.label*0.95,tw+6*u,fs.label*1.25);
-    text(ctx,o.endLabel,lx,ly,{size:fs.label,color:'#d0d0d0',align:al});
+    ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(bx0-3*u,ly0-fs.label*0.95,tw+6*u,fs.label*0.3+lh*lines.length);
+    lines.forEach(function(t,k){text(ctx,t,lx,ly0+k*lh,{size:fs.label,color:'#d0d0d0',align:al});});
   }
   if(o.markerD!=null&&o.markerD>=r0-1&&o.markerD<=r1+1){
     var md=clamp(o.markerD,r0,r1);
@@ -813,15 +816,14 @@ function drawWatch(){
   var chipY=0.128*S,chipFs=0.046*S,lbl,glyph;
   if(M.off){lbl='코스 이탈 '+Math.round(M.offDist)+' m';glyph='warn';}
   else if(seg.type==='UP'){lbl='오르막 '+seg.no+'/'+seg.upTotal;glyph='up';}
-  else if(seg.type==='DOWN'){lbl='내리막 '+seg.no+'/'+seg.dnTotal;glyph='down';}
+  else if(seg.type==='DOWN'){lbl='내리막 '+seg.no+'/'+seg.dnTotal;glyph='none';}   // 현재 위치 삼각형과 헷갈리지 않도록 아이콘 없음
   else{lbl='평지';glyph='flat';}
   ctx.font='600 '+chipFs+'px '+FONT_KR;
-  var gw=chipFs*0.8,gap=chipFs*0.35,tw=ctx.measureText(lbl).width,sx=S/2-(gw+gap+tw)/2,gy=chipY-chipFs*0.36;
+  var gw=glyph==='none'?0:chipFs*0.8,gap=glyph==='none'?0:chipFs*0.35,tw=ctx.measureText(lbl).width,sx=S/2-(gw+gap+tw)/2,gy=chipY-chipFs*0.36;
   ctx.beginPath();
   if(glyph==='up'){ctx.moveTo(sx,gy+gw*0.45);ctx.lineTo(sx+gw/2,gy-gw*0.45);ctx.lineTo(sx+gw,gy+gw*0.45);ctx.closePath();ctx.fillStyle=UP_ID;ctx.fill();}
-  else if(glyph==='down'){ctx.moveTo(sx,gy-gw*0.45);ctx.lineTo(sx+gw/2,gy+gw*0.45);ctx.lineTo(sx+gw,gy-gw*0.45);ctx.closePath();ctx.fillStyle=DN_ID;ctx.fill();}
   else if(glyph==='flat'){ctx.fillStyle='#8c8c8c';ctx.fillRect(sx,gy-gw*0.12,gw,gw*0.24);}
-  else{ctx.arc(sx+gw/2,gy,gw*0.55,0,Math.PI*2);ctx.fillStyle=WARN;ctx.fill();text(ctx,'!',sx+gw/2,gy+chipFs*0.3,{size:chipFs*0.85,color:'#000',weight:700,font:FONT_NUM});}
+  else if(glyph==='warn'){ctx.arc(sx+gw/2,gy,gw*0.55,0,Math.PI*2);ctx.fillStyle=WARN;ctx.fill();text(ctx,'!',sx+gw/2,gy+chipFs*0.3,{size:chipFs*0.85,color:'#000',weight:700,font:FONT_NUM});}
   text(ctx,lbl,sx+gw+gap,chipY,{size:chipFs,color:'#f0f0f0',weight:600,align:'left'});
 
   // big grade
@@ -841,7 +843,7 @@ function drawWatch(){
   text(ctx,num,x0,by,{size:bigFs,font:FONT_NUM,weight:600,align:'left',color:'#ffffff'});
   text(ctx,'%',x0+nw+gapN,by,{size:pctFs,font:FONT_NUM,weight:600,align:'left',color:'#9a9a9a'});
   ctx.fillStyle=settings.colorOn?gradeColor(g):'#8c8c8c';
-  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x0,by+0.012*S,nw,0.011*S,0.005*S);ctx.fill();}else ctx.fillRect(x0,by+0.012*S,nw,0.011*S);
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x0,by+0.012*S,tot,0.011*S,0.005*S);ctx.fill();}else ctx.fillRect(x0,by+0.012*S,tot,0.011*S);   // 숫자와 % 전체 폭
   if(sides){
     text(ctx,sL1,cxL,ly1,{size:sideL,color:'#9a9a9a'});
     text(ctx,sL2,cxL,ly2,{size:sideV,font:FONT_NUM,weight:600,color:'#f2f2f2'});
