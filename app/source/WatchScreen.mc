@@ -28,6 +28,18 @@ class WatchScreen {
     static const GRAY_FILL = 0x6a6a6a;
     static const WARN = 0xfab219;
     static const MARKER = 0xff1f1f;
+    // 보조 글자(라벨·단위·마지막 줄·가로 범위)의 회색과 크기. 처음(밝기 55–60%, 화면의 3–4%)은 실기기에서 잘 안 보여
+    // 밝기 약 75%로 올리고 글자를 키웠습니다. 크기는 화면 지름 S에 대한 비율입니다.
+    static const GRAY_LABEL = 0xc4c4c4;   // 라벨, 단위, 가로 범위, 마지막 줄
+    static const GRAY_FAN = 0xb0b0b0;     // 경사 기준선 숫자
+    static const GRAY_FAN_LINE = 0x6a6a6a;
+    static const FS_SIDE_LABEL = 0.045;   // 평균, 앞쪽 최대 (처음 0.035)
+    static const FS_SPAN = 0.044;         // 그래프 아래 가로 범위 (처음 0.034)
+    static const FS_FAN = 0.04;           // 경사 기준선 숫자 (처음 0.03)
+    static const FS_END_LABEL = 0.042;    // 구간 끝 점 레이블, 넘친 고도 (처음 0.036)
+    static const FS_UNIT = 0.05;          // 하단 값 옆 단위 (처음 0.042)
+    static const FS_LABEL = 0.05;         // 하단 값 아래 레이블 (처음 0.04)
+    static const FS_LAST = 0.046;         // 마지막 줄 (처음 0.038)
     static const NONE = -9999;
     static const COL_NONE = 255;
 
@@ -321,8 +333,8 @@ class WatchScreen {
             _vR = km(remD);
             _uR = "km";
             _lR = "남은 거리";
-            _last = (up ? "오르막 끝 " : "내리막 끝 ") + fmtInt(c.ele(c.segEnd(seg))) + " m · 구간 "
-                + km(c.segEndD(seg) - c.segStartD(seg)) + " km";
+            // 모드 표시가 이미 오르막·내리막을 알려 주고, 화면 아래쪽은 폭이 좁아 큰 글자에 맞춰 앞의 "오르막"을 뺐습니다.
+            _last = "끝 " + fmtInt(c.ele(c.segEnd(seg))) + " m · 구간 " + km(c.segEndD(seg) - c.segStartD(seg)) + " km";
         } else if (next >= 0) {
             var nUp = c.segType(next) == TrailCourse.UP;
             var toNext = c.segStartD(next) - d;
@@ -361,17 +373,17 @@ class WatchScreen {
         if (_mX != NONE) {
             drawMarker(dc, _mX, _mY, _off);
         }
-        dc.setColor(0x8f8f8f, Graphics.COLOR_TRANSPARENT);
-        text(dc, s / 2, (0.703 * s).toNumber(), fonts.kr(0.034 * s), _span, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(GRAY_LABEL, Graphics.COLOR_TRANSPARENT);
+        text(dc, s / 2, (0.708 * s).toNumber(), fonts.kr(FS_SPAN * s), _span, Graphics.TEXT_JUSTIFY_CENTER);
         drawBottom(dc, status == null);
         if (status != null) {
-            statusLine(dc, status, statusTail, 0xb0b0b0);
+            statusLine(dc, status, statusTail, 0xd0d0d0);
         }
     }
 
     // 마지막 줄 자리의 상태 문구 (명세 4.3). 원 안에 들어가도록 앞부분만 줄이고 tail은 남깁니다.
     function statusLine(dc as Graphics.Dc, msg as String, tail as String, color as Number) as Void {
-        var f = fonts.kr(0.038 * s);
+        var f = fonts.kr(FS_LAST * s);
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
         text(dc, s / 2, (0.892 * s).toNumber(), f, fit(dc, f, msg, tail, (0.64 * s).toNumber()), Graphics.TEXT_JUSTIFY_CENTER);
     }
@@ -404,7 +416,7 @@ class WatchScreen {
         var yb = (0.262 * s).toNumber();
         var lo = 0.0;
         var hi = s.toFloat();
-        var fL = fonts.kr(0.035 * s);
+        var fL = fonts.kr(FS_SIDE_LABEL * s);
         var fV = fonts.num(0.058 * s);
         var cxL = (0.215 * s).toNumber();
         var cxR = (0.785 * s).toNumber();
@@ -431,14 +443,14 @@ class WatchScreen {
         var x0 = ((_sides ? (lo + hi) / 2.0 : s / 2.0) - tot / 2.0).toNumber();
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         text(dc, x0, yb, fBig, _num, Graphics.TEXT_JUSTIFY_LEFT);
-        dc.setColor(0x9a9a9a, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(GRAY_LABEL, Graphics.COLOR_TRANSPARENT);
         text(dc, (x0 + nw + gapN).toNumber(), yb, fPct, "%", Graphics.TEXT_JUSTIFY_LEFT);
         dc.setColor(colorOn ? COLORS[colorIndex(_g)] : 0x8c8c8c, Graphics.COLOR_TRANSPARENT);
         dc.fillRoundedRectangle(x0, (yb + 0.012 * s).toNumber(), tot.toNumber(), (0.011 * s + 0.5).toNumber(), (0.005 * s).toNumber());
         if (_sides) {
             var ly1 = (0.198 * s).toNumber();
             var ly2 = (0.258 * s).toNumber();
-            dc.setColor(0x9a9a9a, Graphics.COLOR_TRANSPARENT);
+            dc.setColor(GRAY_LABEL, Graphics.COLOR_TRANSPARENT);
             text(dc, cxL, ly1, fL, "평균", Graphics.TEXT_JUSTIFY_CENTER);
             text(dc, cxR, ly1, fL, "앞쪽 최대", Graphics.TEXT_JUSTIFY_CENTER);
             dc.setColor(0xf2f2f2, Graphics.COLOR_TRANSPARENT);
@@ -493,7 +505,7 @@ class WatchScreen {
         var dir = right ? -1 : 1;
         var fx = right ? bx + bw - 2 * u : bx + 2 * u;
         var fy = by + Lf * 0.9 + 2 * u;
-        var fpx = 0.03 * s;
+        var fpx = FS_FAN * s;
         var f = fonts.num(fpx);
         var prevY = -1000.0;
         var gs = [30, 20, 10];
@@ -501,10 +513,10 @@ class WatchScreen {
             var th = Math.atan(gs[k] / 100.0 * exag);
             var ex = fx + dir * Lf * Math.cos(th);
             var ey = fy - Lf * Math.sin(th);
-            dc.setColor(0x4f4f4f, Graphics.COLOR_TRANSPARENT);
+            dc.setColor(GRAY_FAN_LINE, Graphics.COLOR_TRANSPARENT);
             dc.drawLine(fx.toNumber(), fy.toNumber(), ex.toNumber(), ey.toNumber());
             if ((prevY - ey).abs() >= fpx * 0.95) {
-                dc.setColor(0x7d7d7d, Graphics.COLOR_TRANSPARENT);
+                dc.setColor(GRAY_FAN, Graphics.COLOR_TRANSPARENT);
                 text(dc, (ex + dir * 4 * u).toNumber(), (ey + fpx * 0.35).toNumber(), f, gs[k] + "%",
                     right ? Graphics.TEXT_JUSTIFY_RIGHT : Graphics.TEXT_JUSTIFY_LEFT);
                 prevY = ey;
@@ -514,7 +526,7 @@ class WatchScreen {
 
     // 화면 밖으로 잘린 앞쪽 고도를 오른쪽 가장자리에 표시 ("▲ +38 m", "▼ −52 m")
     function drawEdgeBadges(dc as Graphics.Dc) as Void {
-        var lpx = 0.036 * s;
+        var lpx = FS_END_LABEL * s;
         if (_above >= 1.0) {
             edgeBadge(dc, true, "+" + fmt0(_above) + " m", (bx + bw - 2 * u).toNumber(), (by + lpx * 0.95).toNumber(), lpx);
         }
@@ -539,7 +551,7 @@ class WatchScreen {
         var pts = up
             ? [[tx, ty + tri * 0.45], [tx + tri / 2, ty - tri * 0.45], [tx + tri, ty + tri * 0.45]]
             : [[tx, ty - tri * 0.45], [tx + tri / 2, ty + tri * 0.45], [tx + tri, ty - tri * 0.45]];
-        dc.setColor(0xdcdcdc, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(0xf0f0f0, Graphics.COLOR_TRANSPARENT);
         dc.fillPolygon(pts);
         text(dc, (tx + tri + gap).toNumber(), yb, f, label, Graphics.TEXT_JUSTIFY_LEFT);
     }
@@ -557,7 +569,7 @@ class WatchScreen {
         dc.fillCircle(ex, ey, (5 * u).toNumber());
 
         var l2 = _endL2;
-        var lpx = 0.036 * s;
+        var lpx = FS_END_LABEL * s;
         var f = fonts.kr(lpx);
         var lh = lpx * 1.12;
         var lines = l2 == null ? 1 : 2;
@@ -580,7 +592,7 @@ class WatchScreen {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
         dc.fillRectangle((cx - tw / 2.0 - 3 * u).toNumber(), (ly0 - lpx * 0.95).toNumber(), (tw + 6 * u).toNumber(),
             (lpx * 0.3 + lh * lines).toNumber());
-        dc.setColor(0xd0d0d0, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(0xf0f0f0, Graphics.COLOR_TRANSPARENT);
         text(dc, cx.toNumber(), ly0.toNumber(), f, _endL1, Graphics.TEXT_JUSTIFY_CENTER);
         if (l2 != null) {
             text(dc, cx.toNumber(), (ly0 + lh).toNumber(), f, l2, Graphics.TEXT_JUSTIFY_CENTER);
@@ -614,8 +626,8 @@ class WatchScreen {
         dc.fillRectangle(s / 2, (0.735 * s).toNumber(), 1, (0.1 * s).toNumber());
         var last = _last;
         if (showLast && last != null) {
-            var f = fonts.kr(0.038 * s);
-            dc.setColor(0x8a8a8a, Graphics.COLOR_TRANSPARENT);
+            var f = fonts.kr(FS_LAST * s);
+            dc.setColor(GRAY_LABEL, Graphics.COLOR_TRANSPARENT);
             text(dc, s / 2, (0.892 * s).toNumber(), f, fit(dc, f, last, "", (0.64 * s).toNumber()), Graphics.TEXT_JUSTIFY_CENTER);
         }
     }
@@ -623,7 +635,7 @@ class WatchScreen {
     // 하단 수치 한 칸: 값(0.085S) + 단위(0.042S), 그 아래 레이블(0.04S, 폭 0.31S를 넘으면 축소)
     function value(dc as Graphics.Dc, cx as Number, v as String, unit as String, label as String) as Void {
         var fv = fonts.num(0.085 * s);
-        var fu = fonts.kr(0.042 * s);
+        var fu = fonts.kr(FS_UNIT * s);
         var w1 = dc.getTextWidthInPixels(v, fv);
         var w2 = dc.getTextWidthInPixels(unit, fu);
         var gap = (0.01 * s).toNumber();
@@ -631,17 +643,17 @@ class WatchScreen {
         var vy = (0.785 * s).toNumber();
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         text(dc, x, vy, fv, v, Graphics.TEXT_JUSTIFY_LEFT);
-        dc.setColor(0x9a9a9a, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(GRAY_LABEL, Graphics.COLOR_TRANSPARENT);
         text(dc, x + w1 + gap, vy, fu, unit, Graphics.TEXT_JUSTIFY_LEFT);
-        var lpx = 0.04 * s;
+        var lpx = FS_LABEL * s;
         var fl = fonts.kr(lpx);
         var lw = dc.getTextWidthInPixels(label, fl);
         var maxW = 0.31 * s;
         if (lw > maxW) {
             fl = fonts.kr(((lpx * maxW / lw) / 2).toNumber() * 2);
         }
-        dc.setColor(0x8f8f8f, Graphics.COLOR_TRANSPARENT);
-        text(dc, cx, (0.828 * s).toNumber(), fl, label, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(GRAY_LABEL, Graphics.COLOR_TRANSPARENT);
+        text(dc, cx, (0.83 * s).toNumber(), fl, label, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     // =============================================================== 도움 함수

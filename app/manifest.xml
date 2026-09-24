@@ -2,7 +2,7 @@
 <iq:manifest version="3" xmlns:iq="http://www.garmin.com/xml/connectiq">
     <!-- JAM Trail 본 데이터 필드. 스토어에 베타로 등록된 앱(처음에 시험 필드 "JAM Trail Test"로 올린 앱)의 ID를
          그대로 씁니다. 스토어는 등록한 앱 ID가 다른 파일을 새 버전으로 받지 않습니다. 버전은 올릴 때마다 높입니다. -->
-    <iq:application id="ec7e18be-52b0-4eb9-b2ca-cda733808a2d" type="datafield" name="@Strings.AppName" entry="JamTrailApp" launcherIcon="@Drawables.LauncherIcon" minApiLevel="5.0.0" version="1.1.1">
+    <iq:application id="ec7e18be-52b0-4eb9-b2ca-cda733808a2d" type="datafield" name="@Strings.AppName" entry="JamTrailApp" launcherIcon="@Drawables.LauncherIcon" minApiLevel="5.0.0" version="1.1.2">
         <iq:products>
             <!-- fēnix 8 AMOLED 43mm, 47/51mm -->
             <iq:product id="fenix843mm"/>

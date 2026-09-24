@@ -52,7 +52,7 @@ module MenuUi {
         dc.setColor(focused ? Graphics.COLOR_WHITE : 0xc8c8c8, Graphics.COLOR_TRANSPARENT);
         dc.drawText(w / 2, y, f1, fit(dc, f1, main, maxW), Graphics.TEXT_JUSTIFY_CENTER);
         if (sub != null) {
-            dc.setColor(focused ? 0xb0b0b0 : 0x808080, Graphics.COLOR_TRANSPARENT);
+            dc.setColor(focused ? 0xd8d8d8 : 0xa8a8a8, Graphics.COLOR_TRANSPARENT);
             dc.drawText(w / 2, y + h1, f2, fit(dc, f2, sub, maxW), Graphics.TEXT_JUSTIFY_CENTER);
         }
     }
@@ -150,7 +150,7 @@ class MenuTitle extends WatchUi.Drawable {
     function draw(dc as Graphics.Dc) as Void {
         var s = MenuUi.screen();
         var f = MenuUi.fonts().kr(MenuUi.FONT_TITLE * s);
-        dc.setColor(0x9a9a9a, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(0xc4c4c4, Graphics.COLOR_TRANSPARENT);
         dc.drawText(dc.getWidth() / 2, dc.getHeight() - Graphics.getFontHeight(f) - 4, f, _text, Graphics.TEXT_JUSTIFY_CENTER);
     }
 }

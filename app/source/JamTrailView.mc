@@ -358,7 +358,7 @@ class JamTrailView extends WatchUi.DataField {
         screen.text(dc, s / 2, (0.5 * s).toNumber(), f1, line1, Graphics.TEXT_JUSTIFY_CENTER);
         if (line2 != null) {
             var f2 = screen.fonts.kr(0.04 * s);
-            dc.setColor(0x9a9a9a, Graphics.COLOR_TRANSPARENT);
+            dc.setColor(0xc4c4c4, Graphics.COLOR_TRANSPARENT);
             screen.wrapped(dc, s / 2, (0.58 * s).toNumber(), f2, line2, (0.80 * s).toNumber());
         }
     }
