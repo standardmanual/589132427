@@ -5,19 +5,27 @@ import Toybox.System;
 import Toybox.WatchUi;
 
 // JAM Trail 데이터 필드.
-// 4단계: 코스 받기·저장·복원과 상태 표시(명세 4.3).
-// 5단계: 코스 전체 정적 그래프(CourseProfile). 위치에 따른 그래프는 7단계에서 바꿉니다.
-// 6단계: 위치 결정(PositionTracker)과 현재 위치 표시. DEBUG_REPLAY면 가상 러너(Replay)로 시험합니다.
+//   코스 받기·저장·복원과 상태 표시 (명세 4.3, 7.2–7.4)
+//   위치 결정 (명세 7.5, PositionTracker). 시험 재생 빌드에서는 가상 러너(Replay)
+//   화면 모드 결정 (명세 7.6): 새 구간으로 30 m 들어간 뒤 전환, 두 구간 이상 건너뛰면 즉시
+//   워치 화면 (명세 4장, WatchScreen)
 class JamTrailView extends WatchUi.DataField {
+    const HYST_M = 30.0;
+
     var _sync as CourseSync;
     var _course as TrailCourse? = null;
-    var _profile as CourseProfile? = null;
     var _geo as CourseGeo? = null;
     var _tracker as PositionTracker? = null;
     var _replay as Replay? = null;
     var _input as PosInput = new PosInput();
+    var _screen as WatchScreen? = null;
+    var _dispSeg as Number = -1;
     var _started as Boolean = false;
     var _peakMem as Number = 0;
+    var _tourTick as Number = 0;
+    var _tourWidth as Number = -1;
+    var _maxDrawMs as Number = 0;
+    var _maxPrepMs as Number = 0;
 
     function initialize() {
         DataField.initialize();
@@ -44,11 +52,37 @@ class JamTrailView extends WatchUi.DataField {
         var c = _sync.takeLoaded();
         if (c != null) {
             _course = c;
-            _profile = null; // 다음 그리기에서 새 코스로 다시 만듭니다
             _geo = null;
+            _dispSeg = -1;
+            if (_screen != null) {
+                (_screen as WatchScreen).ready = false;
+            }
         }
         updatePosition(info, now);
+        prepareScreen();
         trackMemory("compute");
+    }
+
+    // 화면 계산은 compute에서 합니다 (명세 7.7). 화면 크기는 첫 onUpdate에서 알게 됩니다.
+    function prepareScreen() as Void {
+        var screen = _screen;
+        var course = _course;
+        if (screen == null || course == null) {
+            return;
+        }
+        if (_tourWidth >= 0) {
+            screen.widthM = _tourWidth;
+        }
+        var t = _tracker;
+        var known = t != null && t.known;
+        var t0 = System.getTimer();
+        screen.prepare(course, known ? (t as PositionTracker).d : 0.0, _dispSeg >= 0 ? _dispSeg : 0, known,
+            known && (t as PositionTracker).off, known ? (t as PositionTracker).offDist : 0.0);
+        var ms = System.getTimer() - t0;
+        if (TrailConfig.DEBUG_LOG && ms > _maxPrepMs) {
+            _maxPrepMs = ms;
+            System.println("prepare max " + ms + " ms (w=" + screen.widthM + ")");
+        }
     }
 
     function updatePosition(info as Activity.Info, now as Number) as Void {
@@ -66,16 +100,56 @@ class JamTrailView extends WatchUi.DataField {
         if (!geo.buildStep()) {
             return; // 체크포인트 표를 만드는 중 (100 km 코스는 4번에 나눠 만듦)
         }
-        if (TrailConfig.DEBUG_REPLAY) {
+        if (TrailConfig.DEBUG_TOUR) {
+            // 정해 둔 위치에 6초씩 머뭅니다. 위치가 바뀔 때는 모드를 바로 바꿉니다.
+            var tt = _tracker as PositionTracker;
+            var k = (_tourTick / TrailConfig.TOUR_HOLD) % TrailConfig.TOUR_M.size();
+            if (_tourTick % TrailConfig.TOUR_HOLD == 0) {
+                tt.d = TrailConfig.TOUR_M[k] < tt.length ? TrailConfig.TOUR_M[k] : tt.length;
+                tt.known = true;
+                _dispSeg = -1;
+                var pass = _tourTick / TrailConfig.TOUR_HOLD / TrailConfig.TOUR_M.size();
+                _tourWidth = TrailConfig.TOUR_WIDTHS[pass % TrailConfig.TOUR_WIDTHS.size()];
+                System.println("POSE " + k + " d=" + tt.d.format("%.0f") + " w=" + _tourWidth);
+            }
+            _tourTick++;
+        } else if (TrailConfig.DEBUG_REPLAY) {
             if (_replay == null) {
                 _replay = new Replay(geo);
             }
             var r = _replay as Replay;
+            var before = r.tracker;
             r.tick();
+            if (r.tracker != before) {
+                _dispSeg = -1; // 새 시나리오
+            }
             _tracker = r.tracker;
+        } else {
+            (_tracker as PositionTracker).update(_input.fromInfo(info), now);
+        }
+        var t = _tracker as PositionTracker;
+        if (t.known) {
+            updateMode(course, t.d / course.interval);
+        }
+    }
+
+    // 화면 모드 구간 (명세 7.6, 프로토타입 updateDisp)
+    function updateMode(c as TrailCourse, idx as Float) as Void {
+        var seg = c.segOf(idx);
+        if (_dispSeg < 0 || (seg - _dispSeg).abs() > 1) {
+            _dispSeg = seg;
+        } else if (seg != _dispSeg) {
+            var into = seg > _dispSeg ? (idx - c.segStart(seg)) * c.interval : (c.segEnd(seg) - idx) * c.interval;
+            if (into < HYST_M) {
+                return;
+            }
+            _dispSeg = seg;
+        } else {
             return;
         }
-        (_tracker as PositionTracker).update(_input.fromInfo(info), now);
+        if (TrailConfig.DEBUG_REPLAY) {
+            System.println("MODE seg=" + _dispSeg + " type=" + c.segType(_dispSeg) + " d=" + (idx * c.interval).format("%.1f"));
+        }
     }
 
     // 메모리 최고치가 1 KB 넘게 오를 때마다 기록합니다.
@@ -94,133 +168,59 @@ class JamTrailView extends WatchUi.DataField {
         var now = System.getTimer();
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
+        var screen = _screen;
+        if (screen == null || screen.s != s) {
+            screen = new WatchScreen(s);
+            _screen = screen;
+        }
 
         var course = _course;
         if (course == null) {
             if (_sync.isDownloading()) {
-                center(dc, s, "코스 받는 중 " + _sync.progressText(), null);
+                center(dc, screen, "코스 받는 중 " + _sync.progressText(), null);
             } else if (_sync.isChecking()) {
-                center(dc, s, "코스 확인 중", null);
+                center(dc, screen, "코스 확인 중", null);
             } else {
-                center(dc, s, "코스 없음", "폰 연결 후 활동을 다시 여세요");
+                center(dc, screen, "코스 없음", "폰 연결 후 활동을 다시 여세요");
             }
             var err = _sync.message(now);
             if (err != null) {
-                bottomLine(dc, s, err, _sync.messageTail(), Graphics.COLOR_ORANGE);
+                screen.statusLine(dc, err, _sync.messageTail(), WatchScreen.WARN);
             }
             return;
         }
 
-        var profile = _profile;
-        if (profile == null) {
-            var t0 = System.getTimer();
-            profile = new CourseProfile(course, s);
-            _profile = profile;
-            if (TrailConfig.DEBUG_LOG) {
-                System.println("profile built in " + (System.getTimer() - t0) + " ms, mem " + (System.getSystemStats().usedMemory / 1024) + "k");
-                profile.logColumns(course, s);
-            }
+        if (!screen.ready) {
+            prepareScreen(); // 첫 화면: 아직 compute가 계산하지 못함
         }
-        drawCourseHeader(dc, s, course, profile);
-        profile.draw(dc);
-        drawPosition(dc, s, course, profile);
-        trackMemory("draw");
-
-        var msg = _sync.message(now);
+        var status = null;
+        var tail = "";
         if (_sync.isDownloading()) {
-            bottomLine(dc, s, "새 코스 받는 중 " + _sync.progressText(), "", Graphics.COLOR_LT_GRAY);
-        } else if (msg != null) {
-            bottomLine(dc, s, msg, _sync.messageTail(), Graphics.COLOR_LT_GRAY);
+            status = "새 코스 받는 중 " + _sync.progressText();
+        } else {
+            status = _sync.message(now);
+            tail = _sync.messageTail();
         }
+        var t0 = System.getTimer();
+        screen.draw(dc, status, tail);
+        var ms = System.getTimer() - t0;
+        if (TrailConfig.DEBUG_LOG && ms > _maxDrawMs) {
+            _maxDrawMs = ms;
+            System.println("draw max " + ms + " ms (w=" + screen.widthM + ")");
+        }
+        trackMemory("draw");
     }
 
-    // 그래프 위아래 글자. 7단계에서 명세 4장 화면(모드별 수치)으로 바뀝니다.
-    function drawCourseHeader(dc as Graphics.Dc, s as Number, c as TrailCourse, p as CourseProfile) as Void {
-        var cx = s / 2;
+    // 코스가 없을 때 가운데 문구 (명세 4.3)
+    function center(dc as Graphics.Dc, screen as WatchScreen, line1 as String, line2 as String?) as Void {
+        var s = screen.s;
+        var f1 = screen.fonts.kr(0.06 * s);
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        drawFit(dc, cx, (s * 0.13).toNumber(), Graphics.FONT_XTINY, c.name, "", (s * 0.62).toNumber());
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, (s * 0.20).toNumber(), Graphics.FONT_XTINY,
-            (c.lengthM() / 1000.0).format("%.2f") + " km · +" + c.gainM + " m", Graphics.TEXT_JUSTIFY_CENTER);
-        drawFit(dc, cx, (s * 0.70).toNumber(), Graphics.FONT_XTINY,
-            "오르막 " + c.upCount + " · 내리막 " + c.downCount + " · 평지 " + (c.segCount - c.upCount - c.downCount),
-            "", (s * 0.80).toNumber());
-    }
-
-    // 현재 위치 삼각형과 위치 정보 줄. 코스 이탈 중이면 위쪽에 경고를 띄웁니다(명세 4.2).
-    function drawPosition(dc as Graphics.Dc, s as Number, c as TrailCourse, p as CourseProfile) as Void {
-        var t = _tracker;
-        if (t == null || !t.known) {
-            return;
-        }
-        var pt = p.pointAt(c, t.d);
-        p.drawMarker(dc, s, pt[0], pt[1], t.off);
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(s / 2, (s * 0.77).toNumber(), Graphics.FONT_XTINY,
-            (t.d / 1000.0).format("%.2f") + " km · " + t.sourceName(), Graphics.TEXT_JUSTIFY_CENTER);
-        if (t.off) {
-            dc.setColor(0xfab219, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(s / 2, (s * 0.08).toNumber(), Graphics.FONT_XTINY,
-                "! 코스 이탈 " + t.offDist.format("%.0f") + " m", Graphics.TEXT_JUSTIFY_CENTER);
-        }
-    }
-
-    function center(dc as Graphics.Dc, s as Number, line1 as String, line2 as String?) as Void {
-        var cx = s / 2;
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, s / 2, Graphics.FONT_SMALL, line1, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        screen.text(dc, s / 2, (0.5 * s).toNumber(), f1, line1, Graphics.TEXT_JUSTIFY_CENTER);
         if (line2 != null) {
-            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-            drawWrapped(dc, cx, s / 2 + dc.getFontHeight(Graphics.FONT_SMALL) / 2 + 4, Graphics.FONT_XTINY, line2, (s * 0.80).toNumber());
+            var f2 = screen.fonts.kr(0.04 * s);
+            dc.setColor(0x9a9a9a, Graphics.COLOR_TRANSPARENT);
+            screen.wrapped(dc, s / 2, (0.58 * s).toNumber(), f2, line2, (0.80 * s).toNumber());
         }
-    }
-
-    // 폭을 넘으면 가운데에 가장 가까운 띄어쓰기에서 두 줄로 나눕니다.
-    function drawWrapped(dc as Graphics.Dc, x as Number, y as Number, font as Graphics.FontType, text as String, maxW as Number) as Void {
-        if (dc.getTextWidthInPixels(text, font) <= maxW) {
-            dc.drawText(x, y, font, text, Graphics.TEXT_JUSTIFY_CENTER);
-            return;
-        }
-        var chars = text.toCharArray();
-        var mid = chars.size() / 2;
-        var cut = -1;
-        for (var i = 0; i < chars.size(); i++) {
-            if (chars[i] == ' ' && (cut < 0 || (i - mid).abs() < (cut - mid).abs())) {
-                cut = i;
-            }
-        }
-        if (cut < 0) {
-            drawFit(dc, x, y, font, text, "", maxW);
-            return;
-        }
-        drawFit(dc, x, y, font, text.substring(0, cut) as String, "", maxW);
-        drawFit(dc, x, y + dc.getFontHeight(font), font, text.substring(cut + 1, chars.size()) as String, "", maxW);
-    }
-
-    // 마지막 줄 자리(y 0.892S, 명세 4.1). 원 안에 들어가도록 폭을 줄입니다.
-    // 글자 높이 범위(0.86–0.89S)에서 원의 폭이 약 0.64S입니다.
-    function bottomLine(dc as Graphics.Dc, s as Number, text as String, tail as String, color as Number) as Void {
-        dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-        var font = Graphics.FONT_XTINY;
-        var baseline = (s * 0.892).toNumber();
-        var top = baseline - Graphics.getFontAscent(font);
-        drawFit(dc, s / 2, top, font, text, tail, (s * 0.64).toNumber());
-    }
-
-    // maxW를 넘으면 text의 끝을 잘라 "…"을 붙입니다. tail은 줄이지 않고 항상 붙입니다.
-    function drawFit(dc as Graphics.Dc, x as Number, y as Number, font as Graphics.FontType, text as String, tail as String, maxW as Number) as Void {
-        var t = text + tail;
-        if (dc.getTextWidthInPixels(t, font) > maxW) {
-            var chars = text.toCharArray();
-            var n = chars.size();
-            while (n > 1) {
-                n--;
-                t = text.substring(0, n) + "…" + tail;
-                if (dc.getTextWidthInPixels(t, font) <= maxW) {
-                    break;
-                }
-            }
-        }
-        dc.drawText(x, y, font, t, Graphics.TEXT_JUSTIFY_CENTER);
     }
 }

@@ -8,6 +8,7 @@
   - 코스 이탈 판정: 이탈 구간에서 이탈로 본 비율, 이탈 구간 밖에서 잘못 이탈로 본 횟수
   - 왕복 구간(샘플 코스 12.2–13.7 km 부근)의 최대 오차
 GEO 줄(시계가 복원한 절대 좌표)은 코스 서버 폴더의 바이너리를 Python으로 풀어 비교합니다.
+MODE 줄(화면 모드 전환, 명세 7.6)은 이웃 구간으로 넘어갈 때 새 구간으로 30 m 이상 들어간 뒤에 바뀌었는지 봅니다.
 
   python3 scripts/check_position.py [--log bin/app-sim.log] [--site pages]
 """
@@ -33,10 +34,17 @@ def main():
     args = ap.parse_args()
 
     rows = defaultdict(list)
+    modes = defaultdict(list)
+    scenario = None
     geo = []
     course_id = None
     for line in args.log.read_text(encoding="utf-8", errors="replace").splitlines():
-        if line.startswith("RP "):
+        if line.startswith("RP_START "):
+            scenario = line.split()[1]
+        elif line.startswith("MODE ") and scenario:
+            kv = dict(p.split("=", 1) for p in line.split()[1:])
+            modes[scenario].append((int(kv["seg"]), float(kv["d"])))
+        elif line.startswith("RP "):
             head, gs = line.split(" gs=", 1)  # 가민 상태(gs)에는 띄어쓰기가 들어갈 수 있음
             parts = head.split()
             kv = dict(p.split("=", 1) for p in parts[2:])
@@ -102,6 +110,22 @@ def main():
         if max(err) > LIMITS["max"]:
             worst = max(range(len(rs)), key=lambda i: -1 if ex[i] else abs(dd[i] - t[i]))
             print(f"  최대 오차 위치: t={t[worst]:.0f} d={dd[worst]:.0f} (이탈 구간 끝 {max((tt for tt, e in zip(t, ex) if e), default=0):.0f} m)")
+            ok = False
+    # 화면 모드 전환 (gps 시나리오: 코스 전체를 지나감)
+    if course_id and modes.get("gps"):
+        segs = [(t, st * d.interval, en * d.interval) for t, st, en, *_ in d.segs]
+        ms = modes["gps"]
+        early = []
+        for (a, _), (b, dd) in zip(ms, ms[1:]):
+            if abs(b - a) == 1:
+                into = dd - segs[b][1] if b > a else segs[b][2] - dd
+                if into < 30 - 1e-6:
+                    early.append((a, b, dd, into))
+        visited = sorted({sg for sg, _ in ms})
+        print(f"[모드] gps 시나리오 전환 {len(ms) - 1}회, 거친 구간 {len(visited)}/{len(segs)}개, 30 m 전에 바뀐 전환 {len(early)}회")
+        for a, b, dd, into in early[:5]:
+            print(f"  구간 {a}→{b} d={dd:.0f} m (새 구간으로 {into:.0f} m)")
+        if early or len(visited) != len(segs):
             ok = False
     print("통과" if ok else "확인 필요")
     return 0 if ok else 1

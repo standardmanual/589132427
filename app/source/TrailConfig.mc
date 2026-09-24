@@ -36,4 +36,11 @@ module TrailConfig {
     // 빌드 설정으로 고릅니다: 기본(monkey.jungle)은 끄고, scripts/sim-app.sh --replay(replay.jungle)는 켭니다.
     (:replay_off) const DEBUG_REPLAY = false;
     (:replay_on) const DEBUG_REPLAY = true;
+    // 화면 둘러보기: 정해 둔 코스 위치(TOUR_M)에 6초씩 머뭅니다. 프로토타입과 화면을 나란히 비교할 때 씁니다
+    // (tour.jungle, scripts/sim-app.sh --tour). 샘플 코스 기준 위치입니다.
+    (:tour_off) const DEBUG_TOUR = false;
+    (:tour_on) const DEBUG_TOUR = true;
+    const TOUR_M = [800.0, 2500.0, 5600.0, 7500.0, 9800.0, 12200.0, 13400.0, 17000.0, 19400.0, 21200.0];
+    const TOUR_HOLD = 6;
+    const TOUR_WIDTHS = [2000, 10000, 0]; // 한 바퀴마다 가로 범위를 바꿉니다 (0은 구간 맞춤)
 }

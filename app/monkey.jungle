@@ -1,2 +1,2 @@
 project.manifest = manifest.xml
-base.excludeAnnotations = replay_on
+base.excludeAnnotations = replay_on;tour_on

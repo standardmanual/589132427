@@ -110,10 +110,10 @@ button:focus-visible,.file-btn:focus-within,tr:focus-visible{outline:2px solid v
 .legend{padding:14px 14px 12px;display:flex;flex-direction:column;gap:10px;margin-top:12px}
 .lg-row{display:grid;grid-template-columns:48px minmax(0,1fr);align-items:center;gap:10px}
 .lg-name{font-size:12.5px;color:#bdbdbd}
-.lg-sw{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px}
+.lg-sw{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px}
 .lg-sw span{height:10px;border-radius:2px}
 .lg-ticks{display:grid;grid-template-columns:48px minmax(0,1fr);gap:10px;font-size:11.5px;color:#9a9a9a;font-variant-numeric:tabular-nums}
-.lg-ticks div{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px}
+.lg-ticks div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px}
 .lg-ticks span{text-align:center}
 
 /* compare */
@@ -369,12 +369,12 @@ tbody tr.cur td:first-child::before{content:"";display:inline-block;width:6px;he
 'use strict';
 
 /* ---------- constants (명세 3장: 상수로 분리) ---------- */
-var UP=['#00df3f','#fefc00','#ffb63f','#fe6a00','#e00041','#dd00de'];   // 형광 계열, 인접 색 구분 검증 통과
-var DN=['#00e074','#48fff8','#38c5ff','#1888ff','#8600ee','#ea41ff'];
-var UP_ID=UP[3], DN_ID=DN[3];   // 오르막·내리막 대표색 (구간 시작·끝 점, 구간 띠)
+var UP=['#00df3f','#fefc00','#e00041'];   // 경사 색 3단계 (0–10, 10–20, 20%+). 인접 색 구분 검증 통과
+var DN=['#00e074','#38c5ff','#8600ee'];
+var UP_ID='#fe6a00', DN_ID='#1888ff';   // 오르막·내리막 대표색 (구간 시작·끝 점, 구간 띠)
 var MARKER='#ff1f1f';           // 현재 위치 삼각형
-var EDGES=[5,10,15,20,30];
-var BIN_LABELS=['0–5','5–10','10–15','15–20','20–30','30+'];
+var EDGES=[10,20];
+var BIN_LABELS=['0–10','10–20','20+'];
 var WARN='#fab219';
 var FLAT_GRADE=0.02, PLATEAU_LEN=500, HYST_M=30, WIN_BACK=200, WIN_FWD=1000;
 var FONT_NUM='"Barlow Condensed","IBM Plex Sans KR",system-ui,sans-serif';

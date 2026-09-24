@@ -37,7 +37,11 @@ class Handler(SimpleHTTPRequestHandler):
 
     def guess_type(self, path):
         # GitHub Pages와 같은 Content-Type
-        return "text/plain; charset=utf-8" if str(path).endswith(".txt") else super().guess_type(path)
+        if str(path).endswith(".txt"):
+            return "text/plain; charset=utf-8"
+        if str(path).endswith(".html"):
+            return "text/html; charset=utf-8"  # 프로토타입 HTML에는 charset 선언이 없음
+        return super().guess_type(path)
 
     def log_message(self, fmt, *args):
         sys.stdout.write("%s %s\n" % (time.strftime("%H:%M:%S"), fmt % args))

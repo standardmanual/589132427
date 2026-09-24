@@ -4,6 +4,7 @@
 #   --reset   실행 전에 시뮬레이터에 저장된 이 앱의 Storage를 지웁니다 (코스 없는 첫 실행 시험)
 #   --replay  시험 재생 빌드: 가상 러너로 위치 결정을 시험합니다. 약 10분 뒤 RP_DONE이 찍히면
 #             python3 scripts/check_position.py로 결과를 봅니다.
+#   --tour    화면 둘러보기 빌드: 정해 둔 코스 위치(TrailConfig.TOUR_M)에 6초씩 머뭅니다.
 # 코스 서버는 따로 띄워 둡니다: python3 scripts/course_server.py (끊김 시험 옵션은 --help)
 # 로그는 bin/app-sim.log에도 남습니다.
 set -e
@@ -14,6 +15,7 @@ while [[ $1 == --* ]]; do
   case $1 in
     --reset) RESET=1 ;;
     --replay) JUNGLE=replay.jungle ;;
+    --tour) JUNGLE=tour.jungle ;;
     *) echo "알 수 없는 옵션: $1" >&2; exit 1 ;;
   esac
   shift

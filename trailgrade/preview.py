@@ -16,9 +16,10 @@ import zlib
 
 from .course import DOWN, UP, Course
 
-EDGES = [5, 10, 15, 20, 30]
-UP_COLORS = ["#00df3f", "#fefc00", "#ffb63f", "#fe6a00", "#e00041", "#dd00de"]
-DN_COLORS = ["#00e074", "#48fff8", "#38c5ff", "#1888ff", "#8600ee", "#ea41ff"]
+# 경사 색 3단계 (명세 3.3): 0–10, 10–20, 20% 이상
+EDGES = [10, 20]
+UP_COLORS = ["#00df3f", "#fefc00", "#e00041"]
+DN_COLORS = ["#00e074", "#38c5ff", "#8600ee"]
 UP_ID, DN_ID, FLAT_ID = "#fe6a00", "#1888ff", "#3d3d3d"
 
 
