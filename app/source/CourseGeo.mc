@@ -10,8 +10,8 @@ import Toybox.Math;
 // 좌표 평면: 첫 점 기준 등장방형 평면(m). x = (경도 − 경도0) × kx, y = (위도 − 위도0) × ky
 // (위도·경도는 1e-5° 정수 단위)
 class CourseGeo {
-    static const K = 8;                 // 체크포인트 간격 (점)
-    static const BUILD_PER_STEP = 1500; // buildStep 한 번에 읽는 델타 수
+    static const K = 16;                // 체크포인트 간격 (점). 100 km 코스에 312개, 메모리 약 3 KB
+    static const BUILD_PER_STEP = 1000; // buildStep 한 번에 읽는 델타 수 (워치독 한도 안)
     static const R_E = 6371008.8;
 
     var course as TrailCourse;
@@ -48,11 +48,11 @@ class CourseGeo {
         if (end > n) {
             end = n;
         }
-        var b = course.data;
-        var o = course.coordOff + 4 * (_buildI - 1);
+        var c = course;
+        var o = c.coordOff + 4 * (_buildI - 1);
         for (var i = _buildI; i < end; i++) {
-            _curLat += s16(b, o);
-            _curLon += s16(b, o + 2);
+            _curLat += c.s16(o);
+            _curLon += c.s16(o + 2);
             o += 4;
             if (i % K == 0) {
                 _cpLat[i / K] = _curLat;
@@ -64,21 +64,16 @@ class CourseGeo {
         return ready;
     }
 
-    static function s16(b as ByteArray, o as Number) as Number {
-        var v = (b[o] << 8) | b[o + 1];
-        return v >= 32768 ? v - 65536 : v;
-    }
-
     // i번 점의 절대 좌표 (1e-5° 정수). 가까운 체크포인트부터 최대 K−1개 델타를 더합니다.
     function pointQ(i as Number) as [Number, Number] {
         var c = i / K;
         var lat = _cpLat[c];
         var lon = _cpLon[c];
-        var b = course.data;
-        var o = course.coordOff + 4 * (c * K);
+        var cr = course;
+        var o = cr.coordOff + 4 * (c * K);
         for (var j = c * K + 1; j <= i; j++) {
-            lat += s16(b, o);
-            lon += s16(b, o + 2);
+            lat += cr.s16(o);
+            lon += cr.s16(o + 2);
             o += 4;
         }
         return [lat, lon];
@@ -128,15 +123,26 @@ class CourseGeo {
             hi = n - 2;
         }
         var I = course.interval;
-        // lo번 점: 가까운 체크포인트부터 델타를 더합니다 (pointQ를 부르지 않아 스택을 아낍니다).
-        var b = course.data;
+        // lo번 점: 가까운 체크포인트부터 델타를 더합니다. 데이터 필드는 스택이 작아(전체 탐색에서 호출이 깊어짐)
+        // pointQ·s16을 부르지 않고 조각 바이트를 여기서 바로 읽습니다.
+        var parts = course.parts;
+        var P = course.part;
         var c = lo / K;
         var latQ = _cpLat[c];
         var lonQ = _cpLon[c];
         var o = course.coordOff + 4 * (c * K);
+        var pp;
+        var k;
+        var dv;
         for (var j = c * K + 1; j <= lo; j++) {
-            latQ += s16(b, o);
-            lonQ += s16(b, o + 2);
+            pp = parts[o / P];
+            k = o % P;
+            dv = (pp[k] << 8) | pp[k + 1];
+            latQ += dv >= 32768 ? dv - 65536 : dv;
+            pp = parts[(o + 2) / P];
+            k = (o + 2) % P;
+            dv = (pp[k] << 8) | pp[k + 1];
+            lonQ += dv >= 32768 ? dv - 65536 : dv;
             o += 4;
         }
         // 좌표 변환을 함수로 부르지 않고 여기서 계산합니다 (매초 도는 반복문이라 호출 비용이 큼).
@@ -150,8 +156,14 @@ class CourseGeo {
         var bestD2 = 1.0e12;
         var bestCost = 1.0e12;
         for (var i = lo; i <= hi; i++) {
-            latQ += s16(b, o);
-            lonQ += s16(b, o + 2);
+            pp = parts[o / P];
+            k = o % P;
+            dv = (pp[k] << 8) | pp[k + 1];
+            latQ += dv >= 32768 ? dv - 65536 : dv;
+            pp = parts[(o + 2) / P];
+            k = (o + 2) % P;
+            dv = (pp[k] << 8) | pp[k + 1];
+            lonQ += dv >= 32768 ? dv - 65536 : dv;
             o += 4;
             var bx = (lonQ - lon0) * fx;
             var by = (latQ - lat0) * fy;

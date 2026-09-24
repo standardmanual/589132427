@@ -120,7 +120,7 @@ module CourseStore {
     }
 
     // 조각을 모아 코스를 복원합니다 (명세 7.4). verify가 true면 SHA-256 앞 10자리를 ID와 비교합니다.
-    // 조각은 하나씩 읽어 붙이고 바로 버립니다. 문제가 있으면 null.
+    // 조각은 합치지 않고 배열로 넘깁니다(TrailCourse 참고). 마지막 조각 말고는 크기가 같고 짝수여야 합니다.
     function loadCourse(id as String, verify as Boolean) as TrailCourse? {
         var m = manifest(id);
         if (m == null) {
@@ -128,24 +128,30 @@ module CourseStore {
         }
         var chunks = m["chunks"];
         var total = m["bytes"];
-        if (!(chunks instanceof Number) || !(total instanceof Number)) {
+        if (!(chunks instanceof Number) || !(total instanceof Number) || chunks <= 0) {
             return null;
         }
         var hash = verify ? new Cryptography.Hash({ :algorithm => Cryptography.HASH_SHA256 }) : null;
-        var bytes = []b;
+        var pieces = new Array<ByteArray>[chunks];
+        var sum = 0;
         for (var i = 0; i < chunks; i++) {
             var piece = getChunk(id, i);
             if (piece == null) {
                 System.println("load " + id + ": chunk " + i + " missing");
                 return null;
             }
+            if (i > 0 && i < chunks - 1 && piece.size() != pieces[0].size()) {
+                System.println("load " + id + ": chunk " + i + " size " + piece.size());
+                return null;
+            }
             if (hash != null) {
                 hash.update(piece);
             }
-            bytes.addAll(piece);
+            pieces[i] = piece;
+            sum += piece.size();
         }
-        if (bytes.size() != total) {
-            System.println("load " + id + ": size " + bytes.size() + " != " + total);
+        if (sum != total || (chunks > 1 && pieces[chunks - 1].size() > pieces[0].size())) {
+            System.println("load " + id + ": size " + sum + " != " + total);
             return null;
         }
         if (hash != null) {
@@ -160,8 +166,7 @@ module CourseStore {
             }
         }
         var name = m["name"];
-        var course = new TrailCourse(id, (name instanceof String) ? name as String : id, bytes, m);
+        var course = new TrailCourse(id, (name instanceof String) ? name as String : id, pieces, m);
         return course.valid ? course : null;
     }
-
 }

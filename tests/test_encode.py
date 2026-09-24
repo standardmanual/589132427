@@ -54,9 +54,12 @@ class EncodeTest(unittest.TestCase):
         for i, ch in enumerate(chunks[:-1]):
             self.assertEqual(len(base64.b64decode(ch)), 4500, i)
 
-    def test_chunk_size_must_be_multiple_of_4(self):
-        with self.assertRaises(EncodeError):
-            make_chunks(b"abc", 6001)
+    def test_chunk_size_must_be_multiple_of_8(self):
+        """8의 배수라야 풀린 조각이 짝수 바이트 (시계가 조각을 합치지 않고 u16을 읽음)."""
+        for bad in (6001, 6004):
+            with self.assertRaises(EncodeError):
+                make_chunks(b"abc", bad)
+        self.assertEqual(len(base64.b64decode(make_chunks(bytes(10000), 6000)[0])) % 2, 0)
 
     def test_id_and_crc(self):
         b1 = encode_binary(self.short)

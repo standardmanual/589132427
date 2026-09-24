@@ -24,6 +24,8 @@ class CourseSync {
     const ST_VERIFY = 4;
     const ST_DONE = 5;
     const ST_FAILED = 6;
+    const ST_INDEX = 7;   // 코스 목록(index.txt) 받기
+    const ST_SWITCH = 8;  // 저장해 둔 다른 코스로 바꾸기 (받지 않고 불러오기)
 
     var state as Number = 0;
 
@@ -43,6 +45,10 @@ class CourseSync {
     var _respData as String? = null;
 
     var _loaded as TrailCourse? = null;
+    var _fixedId as String? = null;   // 설정에서 고른 코스 (null이면 서버 현재 코스 따르기)
+    // 새 코스를 불러오기(검증·전환) 전에 데이터 필드가 지금 코스를 메모리에서 내려놓게 합니다.
+    // 100 km 코스(30.5 KB) 두 개가 한꺼번에 올라가면 메모리(124 KB)가 모자랍니다.
+    var roomGiven as Boolean = false;
     var _message as String? = null;
     var _messageTail as String = "";
     var _messageUntil as Number = 0;
@@ -50,11 +56,29 @@ class CourseSync {
     function initialize() {
     }
 
-    function start() as Void {
+    // fixedId: 설정에서 고른 코스. null이면 서버의 current.txt를 따릅니다.
+    // 요청 중이던 것이 있으면 버리고 처음부터 다시 합니다 (받던 조각은 dl에 남아 이어받음).
+    function start(fixedId as String?) as Void {
+        _fixedId = fixedId;
         state = ST_CURRENT;
         _tries = 0;
         _retryAt = 0;
-        log("sync start");
+        _waiting = false;
+        _respReady = false;
+        _reqNo++;
+        log("sync start" + (fixedId != null ? " fixed " + fixedId : ""));
+    }
+
+    // 코스 목록을 받습니다 (설정 메뉴의 "코스 목록 새로고침"). 코스를 받는 중이면 끝난 뒤에 합니다.
+    function isIdle() as Boolean {
+        return state == ST_IDLE || state == ST_DONE || state == ST_FAILED;
+    }
+
+    function fetchIndex() as Void {
+        state = ST_INDEX;
+        _tries = 0;
+        _retryAt = 0;
+        log("fetch index");
     }
 
     // 새 코스를 적용했으면 한 번만 돌려줍니다.
@@ -65,7 +89,12 @@ class CourseSync {
     }
 
     function isDownloading() as Boolean {
-        return state == ST_MANIFEST || state == ST_CHUNK || state == ST_VERIFY;
+        return state == ST_MANIFEST || state == ST_CHUNK || state == ST_VERIFY || state == ST_SWITCH;
+    }
+
+    // 새 코스를 불러올 차례라 지금 코스를 내려놓아야 하는지
+    function needsRoom() as Boolean {
+        return (state == ST_VERIFY || state == ST_SWITCH) && !roomGiven && !_waiting;
     }
 
     // 시작 전(IDLE)도 확인 중으로 봅니다. 첫 compute() 전에 "코스 없음"이 잠깐 보이지 않게 합니다.
@@ -120,14 +149,26 @@ class CourseSync {
         if (now < _retryAt) {
             return;
         }
-        if (state == ST_CURRENT) {
+        if (state == ST_CURRENT && _fixedId != null) {
+            onCurrent(_fixedId as String, now); // 고른 코스: current.txt를 받지 않음
+        } else if (state == ST_CURRENT) {
             send("current.txt", { "t" => Time.now().value() }, now);
+        } else if (state == ST_INDEX) {
+            send("index.txt", { "t" => Time.now().value() }, now);
         } else if (state == ST_MANIFEST) {
             send("c/" + _id + "/m.txt", null, now);
         } else if (state == ST_CHUNK) {
             send("c/" + _id + "/" + _next + ".txt", null, now);
-        } else if (state == ST_VERIFY) {
-            verify(now);
+        } else if (state == ST_VERIFY || state == ST_SWITCH) {
+            if (!roomGiven) {
+                return; // 데이터 필드가 지금 코스를 내려놓을 때까지 기다림 (needsRoom)
+            }
+            roomGiven = false;
+            if (state == ST_VERIFY) {
+                verify(now);
+            } else {
+                switchTo(now);
+            }
         }
     }
 
@@ -168,7 +209,11 @@ class CourseSync {
             return;
         }
         _tries = 0;
-        if (state == ST_CURRENT) {
+        if (state == ST_INDEX) {
+            CourseStore.put(CourseIndex.KEY, data);
+            state = ST_DONE;
+            log("index stored (" + data.length() + " chars)");
+        } else if (state == ST_CURRENT) {
             onCurrent(data, now);
         } else if (state == ST_MANIFEST) {
             onManifest(data, now);
@@ -206,13 +251,10 @@ class CourseSync {
         log("server current " + id + ", active " + active);
         if (CourseStore.isComplete(id)) {
             if (!id.equals(active)) {
-                // 저장해 둔 다른 코스로 바뀜: 다시 받지 않고 활성 코스만 바꿉니다.
-                var c = CourseStore.loadCourse(id, false);
-                if (c != null) {
-                    activate(c, now);
-                    return;
-                }
-                CourseStore.deleteCourse(id);
+                // 저장해 둔 다른 코스로 바뀜: 다시 받지 않고 불러와 활성 코스만 바꿉니다 (switchTo).
+                state = ST_SWITCH;
+                roomGiven = false;
+                return;
             } else {
                 state = ST_DONE;
                 return;
@@ -261,6 +303,7 @@ class CourseSync {
         }
         saveProgress();
         state = _next >= _chunks ? ST_VERIFY : ST_CHUNK;
+        roomGiven = false;
     }
 
     function onChunk(text as String, now as Number) as Void {
@@ -289,7 +332,19 @@ class CourseSync {
         saveProgress();
         if (_next >= _chunks) {
             state = ST_VERIFY;
+            roomGiven = false;
         }
+    }
+
+    function switchTo(now as Number) as Void {
+        var id = _id as String;
+        var c = CourseStore.loadCourse(id, false);
+        if (c != null) {
+            activate(c, now);
+            return;
+        }
+        CourseStore.deleteCourse(id);
+        state = ST_MANIFEST; // 저장본이 망가졌으면 다시 받습니다
     }
 
     function verify(now as Number) as Void {
@@ -305,7 +360,7 @@ class CourseSync {
         m["ok"] = 1;
         CourseStore.put(CourseStore.manifestKey(id), m);
         CourseStore.remove(CourseStore.K_DL);
-        log("verified " + id + " (" + c.data.size() + " B, sha256 ok) mem " + (System.getSystemStats().usedMemory / 1024) + "k");
+        log("verified " + id + " (" + c.size + " B, sha256 ok) mem " + (System.getSystemStats().usedMemory / 1024) + "k");
         activate(c, now);
     }
 

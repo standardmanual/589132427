@@ -9,6 +9,7 @@ import Toybox.WatchUi;
 //   위치 결정 (명세 7.5, PositionTracker). 시험 재생 빌드에서는 가상 러너(Replay)
 //   화면 모드 결정 (명세 7.6): 새 구간으로 30 m 들어간 뒤 전환, 두 구간 이상 건너뛰면 즉시
 //   워치 화면 (명세 4장, WatchScreen)
+//   시계 안 설정 (명세 5장, Settings·SettingsMenu): 바뀌면 다음 compute()에서 반영
 class JamTrailView extends WatchUi.DataField {
     const HYST_M = 30.0;
 
@@ -22,6 +23,11 @@ class JamTrailView extends WatchUi.DataField {
     var _dispSeg as Number = -1;
     var _started as Boolean = false;
     var _peakMem as Number = 0;
+    var _appliedVersion as Number = -1;
+    var _appliedCourse as String? = null;
+    var _indexing as Boolean = false;
+    var _released as Boolean = false;
+    var _indexTried as Boolean = false;
     var _tourTick as Number = 0;
     var _tourWidth as Number = -1;
     var _maxDrawMs as Number = 0;
@@ -41,16 +47,33 @@ class JamTrailView extends WatchUi.DataField {
             if (active != null) {
                 _course = CourseStore.loadCourse(active, false);
                 System.println(_course != null
-                    ? "loaded stored course " + active + " (" + (_course as TrailCourse).data.size() + " B) mem " + (System.getSystemStats().usedMemory / 1024) + "k"
+                    ? "loaded stored course " + active + " (" + (_course as TrailCourse).size + " B) mem " + (System.getSystemStats().usedMemory / 1024) + "k"
                     : "stored course " + active + " could not be loaded");
             } else {
                 System.println("no stored course");
             }
-            _sync.start();
+            _appliedCourse = Settings.course();
+            _sync.start(_appliedCourse);
+        }
+        applySettings();
+        if (_sync.needsRoom()) {
+            releaseCourse();
+            _sync.roomGiven = true;
         }
         _sync.tick(now);
+        updateIndex();
         var c = _sync.takeLoaded();
+        if (c == null && _course == null && _released && _sync.isIdle()) {
+            // 새 코스를 불러오지 못함(검증 실패 등): 내려놓았던 활성 코스를 다시 불러옵니다.
+            _released = false;
+            var active = CourseStore.getString(CourseStore.K_ACTIVE);
+            if (active != null) {
+                c = CourseStore.loadCourse(active, false);
+                System.println("reloaded active course " + active + (c != null ? "" : " FAILED"));
+            }
+        }
         if (c != null) {
+            _released = false;
             _course = c;
             _geo = null;
             _dispSeg = -1;
@@ -61,6 +84,75 @@ class JamTrailView extends WatchUi.DataField {
         updatePosition(info, now);
         prepareScreen();
         trackMemory("compute");
+    }
+
+    // 새 코스를 불러오기 전에 지금 코스와 거기 딸린 좌표 표·화면 계산을 내려놓습니다 (CourseSync.needsRoom).
+    // 그동안 화면은 가운데에 받는 중 문구만 보여 줍니다.
+    function releaseCourse() as Void {
+        if (_course != null) {
+            _released = true;
+        }
+        _course = null;
+        _geo = null;
+        _tracker = null;
+        _replay = null;
+        _dispSeg = -1;
+        if (_screen != null) {
+            (_screen as WatchScreen).ready = false;
+        }
+        if (TrailConfig.DEBUG_LOG) {
+            System.println("released course for loading, mem " + (System.getSystemStats().usedMemory / 1024) + "k");
+        }
+    }
+
+    // 설정이 바뀌었으면 화면·위치 판정·코스 선택에 반영합니다.
+    function applySettings() as Void {
+        var ver = Settings.version();
+        if (ver == _appliedVersion) {
+            return;
+        }
+        _appliedVersion = ver;
+        var screen = _screen;
+        if (screen != null) {
+            screen.exag = Settings.get(Settings.EXAG);
+            screen.widthM = Settings.get(Settings.WIDTH);
+            screen.gradeWin = Settings.get(Settings.GWIN).toFloat();
+            screen.colorOn = Settings.get(Settings.COLOR) == 1;
+        }
+        var t = _tracker;
+        if (t != null) {
+            t.offThreshold = Settings.get(Settings.OFF).toFloat();
+        }
+        var c = Settings.course();
+        if ((c == null) != (_appliedCourse == null) || (c != null && !c.equals(_appliedCourse))) {
+            _appliedCourse = c;
+            _sync.start(c); // 고른 코스(또는 서버 현재 코스)로 다시 맞춥니다
+        }
+        if (TrailConfig.DEBUG_LOG) {
+            System.println("settings v" + _appliedVersion + ": exag " + Settings.get(Settings.EXAG) + ", width " + Settings.get(Settings.WIDTH)
+                + ", gwin " + Settings.get(Settings.GWIN) + ", off " + Settings.get(Settings.OFF) + ", color " + Settings.get(Settings.COLOR)
+                + ", course " + c);
+        }
+    }
+
+    // 코스 목록(index.txt): 메뉴에서 새로고침을 누르면, 또는 한 번도 받은 적이 없으면 코스 받기가 끝난 뒤 받습니다.
+    function updateIndex() as Void {
+        if (_indexing) {
+            if (_sync.isIdle()) {
+                _indexing = false;
+                Settings.setRefresh(false);
+            }
+            return;
+        }
+        if (!_sync.isIdle()) {
+            return;
+        }
+        var want = Settings.refreshRequested() || (!_indexTried && CourseStore.get(CourseIndex.KEY) == null);
+        if (want) {
+            _indexTried = true;
+            _indexing = true;
+            _sync.fetchIndex();
+        }
     }
 
     // 화면 계산은 compute에서 합니다 (명세 7.7). 화면 크기는 첫 onUpdate에서 알게 됩니다.
@@ -95,10 +187,16 @@ class JamTrailView extends WatchUi.DataField {
             geo = new CourseGeo(course);
             _geo = geo;
             _tracker = new PositionTracker(geo);
+            (_tracker as PositionTracker).offThreshold = Settings.get(Settings.OFF).toFloat();
             _replay = null;
         }
-        if (!geo.buildStep()) {
-            return; // 체크포인트 표를 만드는 중 (100 km 코스는 4번에 나눠 만듦)
+        if (!geo.ready) {
+            if (!geo.buildStep()) {
+                return; // 체크포인트 표를 만드는 중 (100 km 코스는 5번에 나눠 만듦)
+            }
+            if (TrailConfig.DEBUG_LOG) {
+                System.println("geo ready (" + course.n + " points) mem " + (System.getSystemStats().usedMemory / 1024) + "k");
+            }
         }
         if (TrailConfig.DEBUG_TOUR) {
             // 정해 둔 위치에 6초씩 머뭅니다. 위치가 바뀔 때는 모드를 바로 바꿉니다.
@@ -172,6 +270,8 @@ class JamTrailView extends WatchUi.DataField {
         if (screen == null || screen.s != s) {
             screen = new WatchScreen(s);
             _screen = screen;
+            _appliedVersion = -1; // 새 화면에 설정 적용
+            applySettings();
         }
 
         var course = _course;

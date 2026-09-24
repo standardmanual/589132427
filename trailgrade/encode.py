@@ -119,8 +119,12 @@ def crc32_hex(b: bytes) -> str:
 
 
 def make_chunks(b: bytes, chunk_chars: int) -> list[str]:
-    """Base64 텍스트를 chunk_chars 글자씩 나눕니다. 4의 배수여야 조각마다 따로 풀 수 있습니다."""
-    if chunk_chars <= 0 or chunk_chars % 4:
-        raise EncodeError(f"조각 크기는 4의 배수인 양수여야 합니다: {chunk_chars}")
+    """Base64 텍스트를 chunk_chars 글자씩 나눕니다.
+
+    8의 배수여야 합니다. 4의 배수면 조각마다 따로 풀 수 있고, 8의 배수면 풀린 조각의 바이트 수가 짝수라
+    시계가 조각을 합치지 않고 읽을 때 2바이트 값이 두 조각에 걸치지 않습니다(app/source/TrailCourse.mc).
+    """
+    if chunk_chars <= 0 or chunk_chars % 8:
+        raise EncodeError(f"조각 크기는 8의 배수인 양수여야 합니다: {chunk_chars}")
     text = base64.b64encode(b).decode("ascii")
     return [text[i:i + chunk_chars] for i in range(0, len(text), chunk_chars)]

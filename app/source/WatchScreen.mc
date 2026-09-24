@@ -29,6 +29,7 @@ class WatchScreen {
     static const WARN = 0xfab219;
     static const MARKER = 0xff1f1f;
     static const NONE = -9999;
+    static const COL_NONE = 255;
 
     var fonts as Fonts;
     var s as Number = 0;
@@ -70,8 +71,11 @@ class WatchScreen {
     var _c1 as Float = 0.0;
     var _ahMn as Float = 0.0;
     var _ahMx as Float = 0.0;
-    var _colY as Array<Number> = [];
-    var _colC as Array<Number> = [];
+    // 열 버퍼는 메모리를 아끼려고 바이트 배열에 둡니다 (숫자 배열은 칸마다 약 5 바이트).
+    //   _colY: 윤곽 높이를 그래프 영역 위 끝(by)에서 잰 값. 0이면 영역 위로 넘침, bh+1이면 바닥 아래, COL_NONE이면 코스 밖
+    //   _colC: 색 번호
+    var _colY as ByteArray = []b;
+    var _colC as ByteArray = []b;
     var _mm as Array<Float> = [0.0, 0.0];
     var _endD as Float = 0.0;
     var _endColor as Number = 0;
@@ -102,8 +106,8 @@ class WatchScreen {
         bh = (0.37 * s + 0.5).toNumber();
         head = (0.036 * s + 0.5).toNumber();
         base = by + bh;
-        _colY = new Array<Number>[bw];
-        _colC = new Array<Number>[bw];
+        _colY = new [bw]b;
+        _colC = new [bw]b;
     }
 
     // =============================================================== 계산 (compute)
@@ -262,7 +266,6 @@ class WatchScreen {
     function buildColumns(c as TrailCourse, d as Float, known as Boolean) as Void {
         var I = c.interval;
         var n = c.n;
-        var b = c.data;
         var H = TrailCourse.HEADER;
         var lastQ = -1;
         var e0 = 0.0;
@@ -271,7 +274,7 @@ class WatchScreen {
         for (var x = 0; x < bw; x++) {
             var dx = _r0 + (bx + x + 0.5 - _xo) / _kx;
             if (dx < _r0 || dx > _r1) {
-                _colY[x] = NONE;
+                _colY[x] = COL_NONE;
                 continue;
             }
             var f = dx / I;
@@ -282,12 +285,13 @@ class WatchScreen {
             if (q != lastQ) {
                 lastQ = q;
                 var o = H + 2 * q;
-                e0 = ((b[o] << 8) | b[o + 1]) / 10.0;
-                e1 = ((b[o + 2] << 8) | b[o + 3]) / 10.0;
+                e0 = c.u16(o) / 10.0;
+                e1 = c.u16(o + 2) / 10.0;
                 var dm = (q + 0.5) * I;
                 ci = (dm < _c0 || dm > _c1) ? C_OUT : colorOn ? colorIndex(stepGrade(c, q, dm)) : C_GRAY;
             }
-            _colY[x] = (base - (e0 + (e1 - e0) * (f - q) - _vb) * _ky + 0.5).toNumber();
+            var yy = (bh - (e0 + (e1 - e0) * (f - q) - _vb) * _ky + 0.5).toNumber();
+            _colY[x] = yy < 0 ? 0 : yy > bh ? bh + 1 : yy;
             _colC[x] = (known && dx <= d) ? ci + C_DIM : ci;
         }
     }
@@ -299,10 +303,7 @@ class WatchScreen {
         }
         var a = q > 0 ? q - 1 : 0;
         var z = q + 2 < c.n - 1 ? q + 2 : c.n - 1;
-        var b = c.data;
-        var oa = TrailCourse.HEADER + 2 * a;
-        var oz = TrailCourse.HEADER + 2 * z;
-        return (((b[oz] << 8) | b[oz + 1]) - ((b[oa] << 8) | b[oa + 1])) / ((z - a) * 20.0) * 10.0;
+        return (c.u16(TrailCourse.HEADER + 2 * z) - c.u16(TrailCourse.HEADER + 2 * a)) / ((z - a) * 20.0) * 10.0;
     }
 
     // 아래쪽 수치와 마지막 줄 (명세 4.2)
@@ -450,13 +451,11 @@ class WatchScreen {
     function paintColumns(dc as Graphics.Dc) as Void {
         var last = -1;
         for (var x = 0; x < bw; x++) {
-            var y = _colY[x];
-            if (y == NONE || y > base) {
+            var v = _colY[x];
+            if (v == COL_NONE || v > bh) {
                 continue;
             }
-            if (y < by) {
-                y = by;
-            }
+            var y = by + v;
             var cc = _colC[x];
             if (cc != last) {
                 dc.setColor(fillColor(cc), Graphics.COLOR_TRANSPARENT);
@@ -469,7 +468,7 @@ class WatchScreen {
         for (var x = 1; x < bw; x++) {
             var ya = _colY[x - 1];
             var yb = _colY[x];
-            if (ya == NONE || yb == NONE) {
+            if (ya == COL_NONE || yb == COL_NONE) {
                 continue;
             }
             var cc = _colC[x];
@@ -481,7 +480,7 @@ class WatchScreen {
                 dc.setColor(lc, Graphics.COLOR_TRANSPARENT);
                 last = lc;
             }
-            dc.drawLine(bx + x - 1, clampY(ya), bx + x, clampY(yb));
+            dc.drawLine(bx + x - 1, by + (ya > bh ? bh : ya), bx + x, by + (yb > bh ? bh : yb));
         }
         dc.setPenWidth(1);
         dc.setColor(0x2c2c2c, Graphics.COLOR_TRANSPARENT);
@@ -697,10 +696,6 @@ class WatchScreen {
 
     function Y(e as Float) as Number {
         return (base - (e - _vb) * _ky + 0.5).toNumber();
-    }
-
-    function clampY(y as Number) as Number {
-        return y < by ? by : y > base ? base : y;
     }
 
     function fillColor(cc as Number) as Number {

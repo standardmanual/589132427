@@ -1,7 +1,12 @@
 import Toybox.Lang;
 
-// 복원한 코스 바이너리 (명세 6.4). 데이터는 ByteArray 하나에 두고 필요할 때 읽습니다.
-//   헤더 20 B, 고도 N × u16 (0.1 m), 좌표 (N−1) × (i16, i16) 델타, 구간 레코드 × 10 B. 빅엔디언.
+// 복원한 코스 바이너리 (명세 6.4). 헤더 20 B, 고도 N × u16 (0.1 m), 좌표 (N−1) × (i16, i16) 델타,
+// 구간 레코드 × 10 B. 빅엔디언.
+//
+// 받은 조각(ByteArray)을 하나로 합치지 않고 조각 배열 그대로 둡니다. addAll로 합치면 늘어날 때마다 새 배열을
+// 만들어 순간적으로 코스 크기의 두 배가 필요해, 100 km 코스(30.5 KB)에서 메모리가 모자랐습니다.
+// 모든 값은 짝수 위치의 2바이트(구간 레코드의 1바이트 값 포함)이고 조각 크기도 짝수라 값이 두 조각에
+// 걸치지 않습니다. 그래서 위치 o는 조각 o / part의 o % part번째 바이트입니다.
 class TrailCourse {
     static const HEADER = 20;
     static const SEG_SIZE = 10;
@@ -11,7 +16,9 @@ class TrailCourse {
 
     var id as String;
     var name as String;
-    var data as ByteArray;
+    var parts as Array<ByteArray>;
+    var part as Number = 1;    // 조각 크기 (마지막 조각만 더 작을 수 있음)
+    var size as Number = 0;    // 전체 바이트 수
     var valid as Boolean = false;
 
     var interval as Number = 0;
@@ -30,10 +37,14 @@ class TrailCourse {
     var eleMinDm as Number = 0; // 0.1 m
     var eleMaxDm as Number = 0;
 
-    function initialize(courseId as String, courseName as String, bytes as ByteArray, manifest as Dictionary) {
+    function initialize(courseId as String, courseName as String, pieces as Array<ByteArray>, manifest as Dictionary) {
         id = courseId;
         name = courseName;
-        data = bytes;
+        parts = pieces;
+        part = pieces[0].size();
+        for (var i = 0; i < pieces.size(); i++) {
+            size += pieces[i].size();
+        }
         parse();
         var keys = ["gain", "loss", "emin", "emax"];
         for (var k = 0; k < keys.size(); k++) {
@@ -49,18 +60,17 @@ class TrailCourse {
     }
 
     function parse() as Void {
-        var b = data;
-        if (b.size() < HEADER || b[0] != 0x54 || b[1] != 0x47 || b[2] != 1) {
+        if (size < HEADER || part % 2 != 0 || u8(0) != 0x54 || u8(1) != 0x47 || u8(2) != 1) {
             return;
         }
-        interval = b[3];
+        interval = u8(3);
         n = u16(4);
         segCount = u16(6);
-        lat0 = b.decodeNumber(Lang.NUMBER_FORMAT_SINT32, { :offset => 8, :endianness => Lang.ENDIAN_BIG }) as Number;
-        lon0 = b.decodeNumber(Lang.NUMBER_FORMAT_SINT32, { :offset => 12, :endianness => Lang.ENDIAN_BIG }) as Number;
+        lat0 = (u16(8) << 16) | u16(10);   // 32비트 부호 있는 정수 (Number도 32비트라 그대로 맞음)
+        lon0 = (u16(12) << 16) | u16(14);
         coordOff = HEADER + 2 * n;
         segOff = coordOff + 4 * (n - 1);
-        if (interval == 0 || n < 2 || b.size() != segOff + SEG_SIZE * segCount) {
+        if (interval == 0 || n < 2 || size != segOff + SEG_SIZE * segCount) {
             return;
         }
         segNo = new Array<Number>[segCount];
@@ -79,9 +89,21 @@ class TrailCourse {
         valid = true;
     }
 
+    function u8(o as Number) as Number {
+        return parts[o / part][o % part];
+    }
+
     // 빅엔디언 u16. decodeNumber는 호출마다 옵션 Dictionary를 만들어 반복문에서 느리므로 바이트를 직접 읽습니다.
-    function u16(offset as Number) as Number {
-        return (data[offset] << 8) | data[offset + 1];
+    // o는 짝수라 두 바이트가 같은 조각에 있습니다.
+    function u16(o as Number) as Number {
+        var p = parts[o / part];
+        var k = o % part;
+        return (p[k] << 8) | p[k + 1];
+    }
+
+    function s16(o as Number) as Number {
+        var v = u16(o);
+        return v >= 32768 ? v - 65536 : v;
     }
 
     function lengthM() as Number {
@@ -94,7 +116,7 @@ class TrailCourse {
     }
 
     function segType(s as Number) as Number {
-        return data[segOff + SEG_SIZE * s];
+        return u8(segOff + SEG_SIZE * s);
     }
 
     function segStart(s as Number) as Number {
@@ -107,8 +129,7 @@ class TrailCourse {
 
     // 구간 레코드의 나머지 값 (명세 6.4)
     function segDEle(s as Number) as Float {
-        var v = u16(segOff + SEG_SIZE * s + 6);
-        return (v >= 32768 ? v - 65536 : v) / 10.0;
+        return s16(segOff + SEG_SIZE * s + 6) / 10.0;
     }
 
     // 평균 경사(%). 레코드의 평균 경사는 0.5% 단위라 표시할 때 반올림이 어긋나므로(10.66% → 10.5 → "10"),
@@ -128,7 +149,7 @@ class TrailCourse {
     // ------------------------------------------------------------ 코스 계산 (프로토타입과 같은 규칙)
 
     // 코스 위치 d(m)의 평활화 고도. 이웃 두 점 사이를 선형 보간합니다.
-    // 매초 여러 번 불리므로 ele()를 거치지 않고 바이트를 직접 읽습니다 (호출 깊이와 비용을 줄임).
+    // 매초 여러 번 불리므로 ele()를 거치지 않습니다 (호출 깊이와 비용을 줄임).
     function eleAt(d as Float) as Float {
         var f = d / interval;
         var i = f.toNumber();
@@ -139,10 +160,9 @@ class TrailCourse {
             i = n - 2;
             f = (n - 1).toFloat();
         }
-        var b = data;
         var o = HEADER + 2 * i;
-        var e0 = (b[o] << 8) | b[o + 1];
-        var e1 = (b[o + 2] << 8) | b[o + 3];
+        var e0 = u16(o);
+        var e1 = u16(o + 2);
         return (e0 + (e1 - e0) * (f - i)) / 10.0;
     }
 
@@ -230,12 +250,11 @@ class TrailCourse {
         var first = ele(i) - eleAt(d);
         var part = up ? first : -first;
         var sum = 0;
-        var b = data;
         var o = HEADER + 2 * i;
-        var prev = (b[o] << 8) | b[o + 1];
+        var prev = u16(o);
         for (i = i + 1; i <= e; i++) {
             o += 2;
-            var v = (b[o] << 8) | b[o + 1];
+            var v = u16(o);
             var diff = up ? v - prev : prev - v;
             if (diff > 0) {
                 sum += diff;
@@ -257,10 +276,8 @@ class TrailCourse {
         }
         var i = (a / interval).toNumber() + 1;
         var end = b / interval;
-        var bytes = data;
         for (; i < end; i++) {
-            var o = HEADER + 2 * i;
-            var v = ((bytes[o] << 8) | bytes[o + 1]) / 10.0;
+            var v = u16(HEADER + 2 * i) / 10.0;
             if (v < mn) {
                 mn = v;
             } else if (v > mx) {

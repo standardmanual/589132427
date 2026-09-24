@@ -3,5 +3,5 @@
 interval = 20        # 재샘플 간격 (m)
 smooth = 100         # 이동 평균 창 (m)
 min_climb = 20       # 구간 분할 히스테리시스 (m)
-chunk_chars = 6000   # Base64 조각 크기 (글자, 4의 배수). 실기기 응답 한도 8–16 KB 사이라 8 KB 이하로 둡니다.
+chunk_chars = 6000   # Base64 조각 크기 (글자, 8의 배수: 풀린 조각이 짝수 바이트). 실기기 응답 한도 8–16 KB 사이라 8 KB 이하로 둡니다.
 out = "pages"        # 코스 서버 폴더. 로컬 시뮬레이터 서버(scripts/sim-testfield.sh)가 이 폴더를 띄웁니다.

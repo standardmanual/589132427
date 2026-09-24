@@ -62,6 +62,7 @@ class PositionTracker {
     var _matchedAt as Number = 0;   // 마지막으로 코스에 붙은 시각 (ms)
     var _garminMax as Float = 0.0;
     var garminState as String = "-"; // 시험 로그용: 가민 축을 쓰지 않은 이유
+    var offThreshold as Float = TrailConfig.OFF_COURSE_M; // 코스 이탈 임계값 (설정 s_off)
 
     function initialize(g as CourseGeo) {
         geo = g;
@@ -108,7 +109,7 @@ class PositionTracker {
         known = true;
         var oc = p.offCourseDistance;
         offDist = oc == null ? 0.0 : oc;
-        off = offDist > TrailConfig.OFF_COURSE_M;
+        off = offDist > offThreshold;
         _idx = d / geo.course.interval; // GPS로 넘어가도 창 탐색을 이어 가도록
         _offSince = -1;
         _matchedAt = now;
@@ -137,7 +138,7 @@ class PositionTracker {
         offDist = r[1];
         source = SRC_GPS;
         known = true;
-        if (offDist > TrailConfig.OFF_COURSE_M) {
+        if (offDist > offThreshold) {
             // 코스 이탈: 마지막 매칭 위치를 유지합니다.
             off = true;
             if (_offSince < 0) {
