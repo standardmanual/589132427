@@ -7,11 +7,12 @@ import Toybox.WatchUi;
 // 기본 Menu2는 시스템 글꼴이라 시계 언어가 영어면 한글이 나오지 않을 수 있어, CustomMenu로 직접 그리고
 // 화면과 같은 벡터 글꼴(NanumGothicBold)을 씁니다.
 //
-// 첫 화면: 세로 배율, 그래프 가로 범위, 현재 경사 평균 구간, 코스 이탈 임계값, 경사 색상, 코스, 코스 목록 새로고침
-// 항목을 고르면 선택지 메뉴가 열리고, 고르면 저장한 뒤 첫 화면으로 돌아옵니다.
+// 첫 화면: 세로 배율, 그래프 가로 범위, 현재 경사 평균 구간, 코스 이탈 임계값, 경사 색상, 코스, 코스 목록 새로고침,
+// 저장된 코스 지우기. 항목을 고르면 선택지 메뉴가 열리고, 고르면 저장한 뒤 첫 화면으로 돌아옵니다.
 module MenuUi {
     const ID_COURSE = 100;
     const ID_REFRESH = 101;
+    const ID_CLEAR = 102;
 
     // 글자 크기와 줄 높이 (화면 지름 S에 대한 비율). 가장 작은 글자(보조 줄)는 시계 기본 메뉴 글자와 같은
     // 36 px(454 px 화면 기준 0.08S)입니다. 시뮬레이터에서 같은 한글 문장의 폭을 재서 맞췄습니다
@@ -96,6 +97,7 @@ module MenuUi {
         }
         m.addItem(new SettingRow(ID_COURSE));
         m.addItem(new SettingRow(ID_REFRESH));
+        m.addItem(new SettingRow(ID_CLEAR));
         return [m, new SettingsDelegate()];
     }
 
@@ -143,6 +145,14 @@ module MenuUi {
         }
         return m;
     }
+
+    // "저장된 코스 지우기" 확인 화면. 실수로 지우지 않도록 한 번 더 확인합니다.
+    function clearConfirmMenu() as WatchUi.CustomMenu {
+        var m = newMenu("코스 지우기");
+        m.addItem(new ConfirmRow(true, "지웁니다", "활성·직전 코스 모두 삭제"));
+        m.addItem(new ConfirmRow(false, "취소", null));
+        return m;
+    }
 }
 
 // 메뉴 제목
@@ -188,6 +198,9 @@ class SettingRow extends WatchUi.CustomMenuItem {
             main = "코스 목록 새로고침";
             var n = CourseIndex.rows().size();
             sub = Settings.refreshRequested() ? "받는 중…" : n > 0 ? "서버 코스 " + n + "개" : "목록 없음";
+        } else if (k == MenuUi.ID_CLEAR) {
+            main = "저장된 코스 지우기";
+            sub = "활성·직전 코스 모두 삭제";
         } else {
             main = Settings.NAMES[k];
             sub = Settings.label(Settings.KEYS[k]);
@@ -224,6 +237,41 @@ class OptionRow extends WatchUi.CustomMenuItem {
     }
 }
 
+// 코스 지우기 확인 줄. "지웁니다"는 눈에 띄게 경고색으로 그립니다.
+class ConfirmRow extends WatchUi.CustomMenuItem {
+    var yes as Boolean;
+    var label as String;
+    var sub as String?;
+
+    function initialize(y as Boolean, l as String, s as String?) {
+        CustomMenuItem.initialize(y, {});
+        yes = y;
+        label = l;
+        sub = s;
+    }
+
+    function draw(dc as Graphics.Dc) as Void {
+        var s2 = MenuUi.screen();
+        var w = dc.getWidth();
+        var h = dc.getHeight();
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.fillRectangle(0, 0, w, h);
+        var f1 = MenuUi.fonts().kr(MenuUi.FONT_MAIN * s2);
+        var f2 = MenuUi.fonts().kr(MenuUi.FONT_SUB * s2);
+        var h1 = Graphics.getFontHeight(f1);
+        var h2 = sub == null ? 0 : Graphics.getFontHeight(f2);
+        var y2 = (h - h1 - h2) / 2;
+        var x = (MenuUi.X_TEXT * s2).toNumber();
+        var maxW = w - x - (MenuUi.X_RIGHT_MARGIN * s2).toNumber();
+        dc.setColor(yes ? 0xfab219 : (isFocused() ? Graphics.COLOR_WHITE : 0xd0d0d0), Graphics.COLOR_TRANSPARENT);
+        dc.drawText(x, y2, f1, MenuUi.fit(dc, f1, label, maxW), Graphics.TEXT_JUSTIFY_LEFT);
+        if (sub != null) {
+            dc.setColor(0xb0b0b0, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(x, y2 + h1, f2, MenuUi.fit(dc, f2, sub, maxW), Graphics.TEXT_JUSTIFY_LEFT);
+        }
+    }
+}
+
 class SettingsDelegate extends WatchUi.Menu2InputDelegate {
     function initialize() {
         Menu2InputDelegate.initialize();
@@ -237,9 +285,25 @@ class SettingsDelegate extends WatchUi.Menu2InputDelegate {
             // 데이터 필드가 다음 compute()에서 index.txt를 받습니다.
             Settings.setRefresh(true);
             WatchUi.requestUpdate();
+        } else if (id == MenuUi.ID_CLEAR) {
+            WatchUi.pushView(MenuUi.clearConfirmMenu(), new ClearConfirmDelegate(), WatchUi.SLIDE_LEFT);
         } else {
             WatchUi.pushView(MenuUi.optionMenu(id), new OptionDelegate(), WatchUi.SLIDE_LEFT);
         }
+    }
+}
+
+class ClearConfirmDelegate extends WatchUi.Menu2InputDelegate {
+    function initialize() {
+        Menu2InputDelegate.initialize();
+    }
+
+    function onSelect(item as WatchUi.MenuItem) as Void {
+        if ((item as ConfirmRow).yes) {
+            // 데이터 필드가 다음 compute()에서 실제로 지웁니다 (설정 화면과 별도 인스턴스일 수 있음).
+            Settings.requestClear();
+        }
+        WatchUi.popView(WatchUi.SLIDE_RIGHT);
     }
 }
 

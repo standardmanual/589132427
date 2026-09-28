@@ -118,6 +118,32 @@ class JamTrailView extends WatchUi.DataField {
         }
     }
 
+    // 설정 메뉴의 "저장된 코스 지우기"(확인 화면을 거침, Settings.requestClear)를 실행합니다.
+    // 활성·직전 코스를 모두 지우고, 코스 선택을 "서버 현재 코스 따르기"로 되돌린 뒤 새로 받으러 갑니다.
+    function clearStoredCourses() as Void {
+        Settings.setClearDone();
+        var active = CourseStore.getString(CourseStore.K_ACTIVE);
+        var prev = CourseStore.getString(CourseStore.K_PREV);
+        CourseStore.deleteCourse(active);
+        CourseStore.deleteCourse(prev);
+        CourseStore.remove(CourseStore.K_ACTIVE);
+        CourseStore.remove(CourseStore.K_PREV);
+        CourseStore.remove(CourseStore.K_DL);
+        _course = null;
+        _geo = null;
+        _tracker = null;
+        _replay = null;
+        _dispSeg = -1;
+        _released = false; // 지운 코스를 다시 불러오지 않도록 (releaseCourse의 재시도 로직과 구분)
+        if (_screen != null) {
+            (_screen as WatchScreen).ready = false;
+        }
+        Settings.setCourse(null); // 고정해 둔 코스였다면 서버 따르기로 되돌림
+        _appliedCourse = null;
+        _sync.start(null);
+        System.println("cleared stored courses (active " + active + ", prev " + prev + ")");
+    }
+
     // 설정이 바뀌었으면 화면·위치 판정·코스 선택에 반영합니다.
     function applySettings() as Void {
         var ver = Settings.version();
@@ -125,6 +151,9 @@ class JamTrailView extends WatchUi.DataField {
             return;
         }
         _appliedVersion = ver;
+        if (Settings.clearRequested()) {
+            clearStoredCourses();
+        }
         var screen = _screen;
         if (screen != null) {
             screen.exag = Settings.get(Settings.EXAG);

@@ -37,6 +37,7 @@ module Settings {
 
     const VER = "s_ver";          // 설정이 바뀔 때마다 1씩 오르는 변경 번호
     const REFRESH = "s_refresh";  // 1이면 코스 목록 새로고침 요청
+    const CLEAR = "s_clear";      // 1이면 저장된 코스(활성·직전)를 모두 지우라는 요청
 
     function indexOf(key as String) as Number {
         for (var i = 0; i < KEYS.size(); i++) {
@@ -77,6 +78,21 @@ module Settings {
 
     function setRefresh(on as Boolean) as Void {
         CourseStore.put(REFRESH, on ? 1 : 0);
+    }
+
+    // 설정 메뉴에서 "저장된 코스 지우기"를 확정하면 요청만 세웁니다. 실제 삭제는 데이터 필드가
+    // compute()에서 합니다(설정 화면이 별도 인스턴스로 돌 수 있어, Storage 값만으로 신호를 주고받습니다).
+    function requestClear() as Void {
+        CourseStore.put(CLEAR, 1);
+        bump();
+    }
+
+    function clearRequested() as Boolean {
+        return CourseStore.get(CLEAR) == 1;
+    }
+
+    function setClearDone() as Void {
+        CourseStore.put(CLEAR, 0);
     }
 
     function label(key as String) as String {
