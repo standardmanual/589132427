@@ -2,6 +2,10 @@
 
 Text to paste into the Connect IQ developer portal (apps-developer.garmin.com). Update the "What's new" text for each upload and keep the app version in `app/manifest.xml` in step.
 
+Registered as a standalone app (app ID `5b518199-141d-48a0-8b47-a7e994c7484a`, starting at v1.0.0) since 2026-09-28.
+Use "Register New App" only for the very first upload; every version after that must go through that same app's
+"Upload New Version" — re-registering with this manifest will fail with "The manifest app ID is already in use".
+
 ## App name
 
 JAM Trail
@@ -84,6 +88,11 @@ Good to know
 - Best used together with the same GPX loaded as a Garmin course for navigation; the data field works without it, using GPS matching.
 
 ## What's new
+
+Version 1.0.0 (first release under this app registration)
+- Initial public listing. Includes everything from the earlier beta test build: fixed-scale elevation profile, three-band grade colours, automatic climb/descent/flat mode, off-course warning, GPX course download and offline storage, and a full settings menu (vertical scale, graph range, grade-averaging window, off-course threshold, grade colours, course selection, delete stored courses).
+
+## What's new (history from the earlier beta test build, same app)
 
 Version 1.3.0
 - Added "Delete stored courses" to the settings menu, with a confirmation step, to force a fresh download.
